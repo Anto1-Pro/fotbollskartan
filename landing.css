@@ -147,6 +147,44 @@ a { color: var(--brand-dark); }
   color: #d6f2de;
 }
 
+.screenshot-frame {
+  display: block;
+  max-width: 900px;
+  margin: 52px auto 0;
+  background: #2b2f2c;
+  border-radius: 14px;
+  padding: 10px 10px 0;
+  box-shadow: var(--shadow-lg);
+  text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.screenshot-frame:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.3);
+}
+
+.screenshot-bar {
+  display: flex;
+  gap: 6px;
+  padding: 0 4px 10px;
+}
+
+.screenshot-bar span {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  display: inline-block;
+}
+
+.screenshot-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 6px 6px 0 0;
+}
+
 /* Sections */
 section.block {
   padding: 64px 0;
