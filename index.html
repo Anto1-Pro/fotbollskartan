@@ -3,57 +3,106 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Fotbollskartan – alla svenska fotbollsklubbar på karta</title>
-<meta name="description" content="Fotbollskartan visar alla Sveriges fotbollsklubbar på en interaktiv karta med adress, telefonnummer, hemsida och distrikt." />
-<link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
-<link rel="stylesheet" href="vendor/markercluster/MarkerCluster.css" />
-<link rel="stylesheet" href="vendor/markercluster/MarkerCluster.Default.css" />
-<link rel="stylesheet" href="styles.css" />
+<title>Fotbollskartan – hitta fotbollsklubbar var du än är i Sverige</title>
+<meta name="description" content="Fotbollskartan är en interaktiv karta över alla Sveriges fotbollsklubbar. Hitta lag för träningsmatcher, klubbar nära träningslägret, eller en förening åt barnen – var du än är." />
+<link rel="stylesheet" href="landing.css" />
 </head>
 <body>
-<div id="app">
-  <header>
-    <div class="brand"><span class="ball">⚽</span> Fotbollskartan</div>
-    <div class="controls">
-      <div class="search-wrap">
-        <input type="text" id="searchInput" placeholder="Sök stad, kommun eller klubb…" autocomplete="off" />
-        <div class="suggestions" id="suggestions"></div>
-      </div>
-      <select id="districtSelect">
-        <option value="">Alla distrikt</option>
-      </select>
-      <label class="toggle-wrap">
-        <input type="checkbox" id="youthToggle" />
-        Endast ungdomsverksamhet
-      </label>
-    </div>
-    <div class="stats" id="stats"></div>
-    <button class="sidebar-btn" id="sidebarBtn">Lista</button>
-    <button class="info-btn" id="infoBtn" title="Om kartan">ℹ️</button>
-  </header>
-  <main>
-    <div id="map"></div>
-    <aside id="sidebar">
-      <h2 id="sidebarTitle">Klubbar</h2>
-      <div id="clubList"></div>
-    </aside>
-  </main>
-</div>
 
-<div id="infoModal" class="modal-backdrop">
-  <div class="modal-box">
-    <button class="modal-close" id="infoClose">✕</button>
-    <h2>Om Fotbollskartan</h2>
-    <p>Fotbollskartan visar svenska fotbollsklubbar med adress, telefon och hemsida, samlade från Svenska Fotbollförbundets publika klubbregister.</p>
-    <p><strong>Positionering:</strong> klubbarna är geokodade från sin registrerade gatuadress via OpenStreetMap (Nominatim). Ca 83% matchar den faktiska adressen eller en identifierad anläggning/plan, ytterligare ca 2% är en anläggningsgissning på stadsnivå (t.ex. "Malmö IP") i orter med flera klubbar och kan i enstaka fall peka på fel plan, och resterande ca 16% landar på postnummer- eller ortnivå (ofullständig adress, t.ex. "Box 12"). Samtliga klubbar har nu antingen en bekräftad adress/anläggning eller en trygg postnummerposition. Adressen är kansliadressen, som för många mindre klubbar sammanfaller med klubbstugan/planen men inte alltid.</p>
-    <p><strong>Loggor:</strong> visas där klubben har en registrerad bild hos SvFF. Fler loggor läggs till efter hand.</p>
-    <p><strong>Distrikt:</strong> filtret zoomar till och visar alla klubbar inom valt distrikt (baserat på klubbens fotbollsdistrikt), snarare än en ritad distriktsgräns.</p>
-    <p class="modal-meta">Data hämtad från SvFF:s klubbregister. Positionsdata och kartunderlag © OpenStreetMap-bidragsgivare, licens ODbL.</p>
+<nav class="nav">
+  <div class="container">
+    <a class="brand-link" href="index.html"><span class="ball">⚽</span> Fotbollskartan</a>
+    <a class="nav-cta" href="karta.html">Öppna kartan →</a>
   </div>
-</div>
+</nav>
 
-<script src="vendor/leaflet/leaflet.js"></script>
-<script src="vendor/markercluster/leaflet.markercluster.js"></script>
-<script src="app.js"></script>
+<header class="hero">
+  <div class="container">
+    <h1>Hitta fotbollsklubbar var du än är i Sverige</h1>
+    <p>En interaktiv karta över alla svenska fotbollsklubbar – med adress, telefon och hemsida. Sök upp lag för en träningsmatch, hitta klubbar runt träningslägret, eller en förening åt barnen att börja i.</p>
+    <a class="btn-primary" href="karta.html">⚽ Öppna kartan</a>
+
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <span class="num">1 889</span>
+        <span class="label">registrerade klubbar</span>
+      </div>
+      <div class="hero-stat">
+        <span class="num">23</span>
+        <span class="label">fotbollsdistrikt</span>
+      </div>
+      <div class="hero-stat">
+        <span class="num">83%</span>
+        <span class="label">på bekräftad adress/plan</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="block">
+  <div class="container">
+    <h2>Vad kan du använda kartan till?</h2>
+    <p class="lead">Fotbollskartan samlar hela Svenska Fotbollförbundets klubbregister på en karta, så att du snabbt kan se vilka lag som finns i ett område – inte bara de du redan känner till.</p>
+
+    <div class="cards">
+      <div class="card">
+        <span class="emoji">🤝</span>
+        <h3>Boka en träningsmatch</h3>
+        <p>Sök upp klubbar i ett område ni vill åka till, eller runt er egen ort, och hör av er direkt via telefon, e-post eller hemsida – allt finns samlat i klubbens kartnål.</p>
+      </div>
+      <div class="card">
+        <span class="emoji">🏕️</span>
+        <h3>På träningsläger?</h3>
+        <p>Zooma in på orten ni ska till så visar sidopanelen automatiskt vilka klubbar och planer som finns i närheten – bra att veta inför läger eller cuper på ny ort.</p>
+      </div>
+      <div class="card">
+        <span class="emoji">👨‍👩‍👧‍👦</span>
+        <h3>Hitta en klubb åt barnen</h3>
+        <p>Filtrera på ungdomsverksamhet och sök i ert närområde för att se vilka klubbar som finns att välja mellan innan ni bestämmer var barnen ska börja spela.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block alt-bg">
+  <div class="container">
+    <h2>Så funkar det</h2>
+    <p class="lead">Ingen inloggning, inget krångel – öppna kartan och börja söka direkt.</p>
+
+    <div class="steps">
+      <div class="step">
+        <h3>Sök eller zooma</h3>
+        <p>Skriv en stad, kommun eller ett klubbnamn i sökrutan, eller zooma och panorera fritt på kartan.</p>
+      </div>
+      <div class="step">
+        <h3>Filtrera</h3>
+        <p>Begränsa till ett fotbollsdistrikt eller visa bara klubbar med ungdomsverksamhet.</p>
+      </div>
+      <div class="step">
+        <h3>Bläddra i listan</h3>
+        <p>Sidopanelen visar automatiskt de klubbar som syns i den del av kartan du tittar på just nu.</p>
+      </div>
+      <div class="step">
+        <h3>Klicka för kontaktuppgifter</h3>
+        <p>Klicka på en klubb för adress, telefonnummer, e-post och hemsida – redo att höra av dig.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta-band">
+  <div class="container">
+    <h2>Redo att hitta din nästa motståndare?</h2>
+    <p class="lead">Kartan är gratis att använda och uppdateras löpande med fler bekräftade adresser.</p>
+    <a class="btn-primary" href="karta.html">⚽ Öppna kartan</a>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>Data hämtad från Svenska Fotbollförbundets publika klubbregister. Positionsdata och kartunderlag © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap-bidragsgivare</a>, licens ODbL.</p>
+  </div>
+</footer>
+
 </body>
 </html>

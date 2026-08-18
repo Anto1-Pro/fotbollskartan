@@ -4,15 +4,17 @@ En självständig, statisk webbsida med en interaktiv karta över svenska fotbol
 
 ## Innehåll
 
-- `index.html` – sidan
-- `app.js` – all logik (karta, sök, distriktsfilter, popups)
-- `styles.css` – utseende
+- `index.html` – landningssidan (förklarar syftet, länkar vidare till kartan)
+- `karta.html` – själva kartan
+- `landing.css` – utseende för landningssidan
+- `app.js` – all logik för kartan (sök, distriktsfilter, popups)
+- `styles.css` – utseende för kartan
 - `data.json` – alla ~1889 klubbar (namn, adress, telefon, e-post, hemsida, distrikt, loggo-URL, koordinater)
 - `vendor/` – Leaflet och Leaflet.markercluster (medskickade, ingen extern CDN krävs)
 
 ## Köra lokalt
 
-Öppna inte `index.html` direkt via `file://` (webbläsaren blockerar då `fetch("data.json")`). Starta istället en enkel lokal server i mappen:
+Öppna inte filerna direkt via `file://` (webbläsaren blockerar då `fetch("data.json")` på kartsidan). Starta istället en enkel lokal server i mappen:
 
 ```
 python3 -m http.server 8000

@@ -47,6 +47,8 @@ header {
   font-weight: 700;
   font-size: 1.25rem;
   white-space: nowrap;
+  color: #fff;
+  text-decoration: none;
 }
 
 .brand .ball { font-size: 1.4rem; }
