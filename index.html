@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fotbollskartan – alla svenska fotbollsklubbar på karta</title>
+<meta name="description" content="Fotbollskartan visar alla Sveriges fotbollsklubbar på en interaktiv karta med adress, telefonnummer, hemsida och distrikt." />
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+<link rel="stylesheet" href="vendor/markercluster/MarkerCluster.css" />
+<link rel="stylesheet" href="vendor/markercluster/MarkerCluster.Default.css" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand"><span class="ball">⚽</span> Fotbollskartan</div>
+    <div class="controls">
+      <div class="search-wrap">
+        <input type="text" id="searchInput" placeholder="Sök stad, kommun eller klubb…" autocomplete="off" />
+        <div class="suggestions" id="suggestions"></div>
+      </div>
+      <select id="districtSelect">
+        <option value="">Alla distrikt</option>
+      </select>
+      <label class="toggle-wrap">
+        <input type="checkbox" id="youthToggle" />
+        Endast ungdomsverksamhet
+      </label>
+    </div>
+    <div class="stats" id="stats"></div>
+    <button class="sidebar-btn" id="sidebarBtn">Lista</button>
+    <button class="info-btn" id="infoBtn" title="Om kartan">ℹ️</button>
+  </header>
+  <main>
+    <div id="map"></div>
+    <aside id="sidebar">
+      <h2 id="sidebarTitle">Klubbar</h2>
+      <div id="clubList"></div>
+    </aside>
+  </main>
+</div>
+
+<div id="infoModal" class="modal-backdrop">
+  <div class="modal-box">
+    <button class="modal-close" id="infoClose">✕</button>
+    <h2>Om Fotbollskartan</h2>
+    <p>Fotbollskartan visar svenska fotbollsklubbar med adress, telefon och hemsida, samlade från Svenska Fotbollförbundets publika klubbregister.</p>
+    <p><strong>Positionering:</strong> klubbarna är geokodade från sin registrerade gatuadress via OpenStreetMap (Nominatim). Ca 83% matchar den faktiska adressen eller en identifierad anläggning/plan, ytterligare ca 2% är en anläggningsgissning på stadsnivå (t.ex. "Malmö IP") i orter med flera klubbar och kan i enstaka fall peka på fel plan, och resterande ca 16% landar på postnummer- eller ortnivå (ofullständig adress, t.ex. "Box 12"). Samtliga klubbar har nu antingen en bekräftad adress/anläggning eller en trygg postnummerposition. Adressen är kansliadressen, som för många mindre klubbar sammanfaller med klubbstugan/planen men inte alltid.</p>
+    <p><strong>Loggor:</strong> visas där klubben har en registrerad bild hos SvFF. Fler loggor läggs till efter hand.</p>
+    <p><strong>Distrikt:</strong> filtret zoomar till och visar alla klubbar inom valt distrikt (baserat på klubbens fotbollsdistrikt), snarare än en ritad distriktsgräns.</p>
+    <p class="modal-meta">Data hämtad från SvFF:s klubbregister. Positionsdata och kartunderlag © OpenStreetMap-bidragsgivare, licens ODbL.</p>
+  </div>
+</div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="vendor/markercluster/leaflet.markercluster.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
