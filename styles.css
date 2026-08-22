@@ -233,6 +233,36 @@ main {
   color: var(--text-muted);
 }
 
+.sidebar-ad {
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px 14px;
+  text-align: center;
+}
+
+.sidebar-ad .ad-label {
+  display: block;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.sidebar-ad a {
+  display: inline-block;
+  max-width: 132px;
+  width: 100%;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.sidebar-ad img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .club-item {
   padding: 10px 16px;
   border-bottom: 1px solid var(--border);

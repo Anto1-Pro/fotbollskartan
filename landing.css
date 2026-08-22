@@ -185,6 +185,43 @@ a { color: var(--brand-dark); }
   border-radius: 6px 6px 0 0;
 }
 
+/* Ad banner */
+.ad-band {
+  padding: 28px 0;
+  text-align: center;
+  background: var(--bg);
+}
+
+.ad-label {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.ad-leaderboard {
+  display: inline-block;
+  max-width: 728px;
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ad-leaderboard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.ad-leaderboard img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 /* Sections */
 section.block {
   padding: 64px 0;
