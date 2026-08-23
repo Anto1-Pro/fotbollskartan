@@ -1,4 +1,4 @@
-# Fotbollskartan
+# Fotbollskarta
 
 En självständig, statisk webbsida med en interaktiv karta över svenska fotbollsklubbar (Leaflet + OpenStreetMap).
 

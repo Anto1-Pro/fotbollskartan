@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Fotbollskartan – alla svenska fotbollsklubbar på karta</title>
-<meta name="description" content="Fotbollskartan visar alla Sveriges fotbollsklubbar på en interaktiv karta med adress, telefonnummer, hemsida och distrikt." />
+<title>Fotbollskarta – alla svenska fotbollsklubbar på karta</title>
+<meta name="description" content="Fotbollskarta visar alla Sveriges fotbollsklubbar på en interaktiv karta med adress, telefonnummer, hemsida och distrikt." />
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
 <link rel="stylesheet" href="vendor/markercluster/MarkerCluster.css" />
 <link rel="stylesheet" href="vendor/markercluster/MarkerCluster.Default.css" />
@@ -13,7 +13,7 @@
 <body>
 <div id="app">
   <header>
-    <a class="brand" href="index.html" title="Till startsidan"><span class="ball">⚽</span> Fotbollskartan</a>
+    <a class="brand" href="index.html" title="Till startsidan"><span class="ball">⚽</span> Fotbollskarta</a>
     <div class="controls">
       <div class="search-wrap">
         <input type="text" id="searchInput" placeholder="Sök stad, kommun eller klubb…" autocomplete="off" />
@@ -35,7 +35,7 @@
     <div id="map"></div>
     <div class="map-ad">
       <span class="ad-label">Annons</span>
-      <a href="https://www.foreningsdomare.se/?utm_source=fotbollskartan&amp;utm_medium=banner&amp;utm_campaign=annonssamarbete" target="_blank" rel="noopener sponsored">
+      <a href="https://www.foreningsdomare.se/?utm_source=fotbollskarta&amp;utm_medium=banner&amp;utm_campaign=annonssamarbete" target="_blank" rel="noopener sponsored">
         <img src="img/annons-foreningsdomare-skyscraper.jpg" alt="Föreningsdomare i Sverige – boka ungdomsdomare enkelt via app och Swish" width="120" height="577" loading="lazy" />
       </a>
     </div>
@@ -46,7 +46,7 @@
   </main>
   <div class="map-ad-mobile">
     <span class="ad-label">Annons</span>
-    <a href="https://www.foreningsdomare.se/?utm_source=fotbollskartan&amp;utm_medium=banner&amp;utm_campaign=annonssamarbete" target="_blank" rel="noopener sponsored">
+    <a href="https://www.foreningsdomare.se/?utm_source=fotbollskarta&amp;utm_medium=banner&amp;utm_campaign=annonssamarbete" target="_blank" rel="noopener sponsored">
       <img src="img/annons-foreningsdomare-leaderboard.jpg" alt="Föreningsdomare i Sverige – boka ungdomsdomare enkelt via app och Swish" loading="lazy" />
     </a>
   </div>
@@ -55,8 +55,8 @@
 <div id="infoModal" class="modal-backdrop">
   <div class="modal-box">
     <button class="modal-close" id="infoClose">✕</button>
-    <h2>Om Fotbollskartan</h2>
-    <p>Fotbollskartan visar svenska fotbollsklubbar med adress, telefon och hemsida, samlade från Svenska Fotbollförbundets publika klubbregister.</p>
+    <h2>Om Fotbollskarta</h2>
+    <p>Fotbollskarta visar svenska fotbollsklubbar med adress, telefon och hemsida, samlade från Svenska Fotbollförbundets publika klubbregister.</p>
     <p><strong>Positionering:</strong> klubbarna är geokodade från sin registrerade gatuadress via OpenStreetMap (Nominatim). Ca 78% matchar den faktiska adressen eller en identifierad anläggning/plan, ytterligare ca 1% är en anläggningsgissning på stadsnivå (t.ex. "Malmö IP") i orter med flera klubbar och kan i enstaka fall peka på fel plan, och resterande ca 21% landar på postnummer- eller ortnivå (ofullständig adress, t.ex. "Box 12"). Samtliga klubbar har nu antingen en bekräftad adress/anläggning eller en trygg postnummer-/ortposition. Adressen är kansliadressen, som för många mindre klubbar sammanfaller med klubbstugan/planen men inte alltid.</p>
     <p><strong>Loggor:</strong> visas där klubben har en registrerad bild hos SvFF. Fler loggor läggs till efter hand.</p>
     <p><strong>Distrikt:</strong> filtret zoomar till och visar alla klubbar inom valt distrikt (baserat på klubbens fotbollsdistrikt), snarare än en ritad distriktsgräns.</p>
