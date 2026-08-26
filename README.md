@@ -57,6 +57,10 @@ Varje ny klubb har fått distrikt/`association_id` kopplat utifrån sin adress (
 - **Loggor**: visas där SvFF har en registrerad bild för klubben; övriga visar en genererad platshållare med klubbens initialer tills riktiga loggor läggs till.
 - **Distrikt**: filtret visar/zoomar till alla klubbar inom ett distrikt – det ritar inte en exakt distriktsgräns på kartan (sådan geodata för fotbollsdistrikt är inte allmänt tillgänglig).
 
+## E-postadresser (GDPR)
+
+Källdatan innehöll för många klubbar personliga e-postadresser (t.ex. en enskild kontaktpersons `fornamn.efternamn@gmail.com`) blandat med klubbens egna adresser. Dessa har rensats bort: en adress behålls bara om klubbens namn (eller en rimlig förkortning av det, t.ex. "IFK Skövde FK" → `ifkskovde.se`, "Mjällby AIF" → `maif.se`) går att känna igen antingen i domänen eller i delen före `@`. Adresser utan någon sådan koppling till klubben (som skulle exponera en privatpersons namn helt utan organisatorisk kontext) har tagits bort helt. Av klubbar som hade minst en e-postadress fick 318 st alla sina adresser borttagna eftersom ingen av dem gick att koppla till klubbnamnet. Se `gdpr_email_scan.py` för matchningslogiken och `gdpr_email_report.csv` för en fullständig lista över varje enskild adress och beslutet för den (kan innehålla enstaka felaktiga borttagningar där klubben använder en ovanlig förkortning, t.ex. ett universitets officiella kortnamn som inte följer det vanliga initialmönstret).
+
 ## Licens för positionsdata
 
 Koordinaterna kommer från OpenStreetMap (Nominatim), licensierade under **ODbL** – de får sparas och redistribueras permanent, helt gratis, så länge OpenStreetMap krediteras. Det görs redan i kartans sidfot och i info-panelen på sajten. Ingen återkommande omkörning krävs (till skillnad från Google Maps Geocoding API, som testades tidigare i projektet men som har en 30-dagars gräns för hur länge koordinater får mellanlagras enligt Googles användarvillkor – därför valdes OpenStreetMap som permanent källa istället).
