@@ -68,6 +68,41 @@ header {
   max-width: 420px;
 }
 
+.country-flags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.flag-btn {
+  background: rgba(255, 255, 255, 0.16);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  height: 38px;
+  width: 42px;
+  padding: 0;
+  cursor: pointer;
+  font-size: 1.2rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
+}
+
+.flag-btn:hover { background: rgba(255, 255, 255, 0.3); }
+
+.flag-btn.active {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 255, 255, 0.92);
+}
+
+.flag-btn.inactive {
+  opacity: 0.4;
+  filter: grayscale(70%);
+}
+
 #searchInput, #districtSelect, #youthToggleLabel {
   height: 38px;
   border-radius: 8px;

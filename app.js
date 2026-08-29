@@ -1,7 +1,33 @@
 (function () {
   "use strict";
 
-  var map = L.map("map", { zoomControl: true }).setView([62.5, 15.8], 5);
+  // Optional ?lat=&lon=&zoom= query params (used by the "hitta klubbar nära
+  // mig" landing page after a browser geolocation lookup) center the map
+  // there on load instead of the default whole-Sweden view. Values are
+  // read once here and never sent anywhere - purely a client-side initial
+  // view choice.
+  var urlParams = new URLSearchParams(window.location.search);
+  var initialLat = parseFloat(urlParams.get("lat"));
+  var initialLon = parseFloat(urlParams.get("lon"));
+  var initialZoom = parseFloat(urlParams.get("zoom"));
+  var hasInitialLocation = isFinite(initialLat) && isFinite(initialLon);
+  var defaultCenter = hasInitialLocation ? [initialLat, initialLon] : [62.5, 15.8];
+  var defaultZoom = hasInitialLocation ? (isFinite(initialZoom) ? initialZoom : 12) : 5;
+
+  var map = L.map("map", { zoomControl: true }).setView(defaultCenter, defaultZoom);
+
+  if (hasInitialLocation) {
+    L.circleMarker([initialLat, initialLon], {
+      radius: 9,
+      color: "#1a7a3c",
+      weight: 3,
+      fillColor: "#eafcef",
+      fillOpacity: 1
+    })
+      .addTo(map)
+      .bindPopup("Din plats")
+      .openPopup();
+  }
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
@@ -63,19 +89,79 @@
       .join(" ");
   }
 
+  var COUNTRY_META = {
+    SE: { flag: "🇸🇪", label: "Sverige" },
+    NO: { flag: "🇳🇴", label: "Norge" },
+    DK: { flag: "🇩🇰", label: "Danmark" }
+  };
+  var DEFAULT_ACTIVE_COUNTRY = "SE";
+
   var state = {
     all: [],
     district: "",
     youthOnly: false,
+    activeCountries: {},
     markerById: {},
     placeIndex: {}, // normKey -> {label, clubs: []}
     filtered: []
   };
 
   function clubMatchesFilter(c) {
+    if (!state.activeCountries[c.country]) return false;
     if (state.district && c.district !== state.district) return false;
     if (state.youthOnly && !c.has_youth) return false;
     return true;
+  }
+
+  // ---- country flag filter ----
+  function buildCountryFlags() {
+    var countries = Array.from(new Set(state.all.map(function (c) { return c.country; })));
+    countries.sort(function (a, b) {
+      if (a === DEFAULT_ACTIVE_COUNTRY) return -1;
+      if (b === DEFAULT_ACTIVE_COUNTRY) return 1;
+      var la = (COUNTRY_META[a] && COUNTRY_META[a].label) || a;
+      var lb = (COUNTRY_META[b] && COUNTRY_META[b].label) || b;
+      return la.localeCompare(lb, "sv");
+    });
+    countries.forEach(function (code) {
+      state.activeCountries[code] = code === DEFAULT_ACTIVE_COUNTRY;
+    });
+
+    var wrap = document.getElementById("countryFlags");
+    wrap.innerHTML = "";
+    countries.forEach(function (code) {
+      var meta = COUNTRY_META[code] || { flag: "🏳️", label: code };
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "flag-btn " + (state.activeCountries[code] ? "active" : "inactive");
+      btn.textContent = meta.flag;
+      btn.setAttribute("data-country", code);
+      btn.setAttribute("aria-pressed", state.activeCountries[code] ? "true" : "false");
+      btn.title = meta.label + (state.activeCountries[code] ? " (visas – klicka för att dölja)" : " (dold – klicka för att visa)");
+      btn.addEventListener("click", function () {
+        toggleCountry(code);
+      });
+      wrap.appendChild(btn);
+    });
+  }
+
+  function updateCountryFlagButtons() {
+    var wrap = document.getElementById("countryFlags");
+    wrap.querySelectorAll(".flag-btn").forEach(function (btn) {
+      var code = btn.getAttribute("data-country");
+      var active = !!state.activeCountries[code];
+      var meta = COUNTRY_META[code] || { label: code };
+      btn.className = "flag-btn " + (active ? "active" : "inactive");
+      btn.setAttribute("aria-pressed", active ? "true" : "false");
+      btn.title = meta.label + (active ? " (visas – klicka för att dölja)" : " (dold – klicka för att visa)");
+    });
+  }
+
+  function toggleCountry(code) {
+    state.activeCountries[code] = !state.activeCountries[code];
+    updateCountryFlagButtons();
+    populateDistrictSelect();
+    refreshMap();
   }
 
   function popupHtml(c) {
@@ -114,9 +200,7 @@
       '<div><div class="popup-title">' +
       escapeHtml(c.name) +
       '</div><div class="popup-sub">' +
-      escapeHtml(c.district) +
-      " · " +
-      escapeHtml(c.municipality || "") +
+      escapeHtml([c.district, c.municipality].filter(Boolean).join(" · ")) +
       "</div></div></div>" +
       addrRow +
       phoneRow +
@@ -195,9 +279,7 @@
           '<div class="info"><div class="name">' +
           escapeHtml(c.name) +
           '</div><div class="loc">' +
-          escapeHtml(titleCase(c.city) || c.municipality) +
-          " · " +
-          escapeHtml(c.district) +
+          escapeHtml([titleCase(c.city) || c.municipality, c.district].filter(Boolean).join(" · ")) +
           "</div></div></div>"
         );
       })
@@ -228,8 +310,12 @@
       // reset filters so the club becomes visible
       state.district = "";
       state.youthOnly = false;
-      document.getElementById("districtSelect").value = "";
       document.getElementById("youthToggle").checked = false;
+      if (!state.activeCountries[c.country]) {
+        state.activeCountries[c.country] = true;
+        updateCountryFlagButtons();
+      }
+      populateDistrictSelect();
       refreshMap();
     }
     map.setView(m.getLatLng(), 15, { animate: true });
@@ -280,19 +366,36 @@
     closeSidebarMobile();
   }
 
+  // rebuilds the <option> list from clubs in currently active countries
+  // only - callable repeatedly (init, and whenever a flag is toggled)
   function populateDistrictSelect() {
-    var districts = Array.from(new Set(state.all.map(function (c) { return c.district; }))).sort(
-      function (a, b) {
-        return a.localeCompare(b, "sv");
-      }
-    );
+    var districts = Array.from(
+      new Set(
+        state.all
+          .filter(function (c) { return state.activeCountries[c.country]; })
+          .map(function (c) { return c.district; })
+      )
+    )
+      .filter(Boolean)
+      .sort(function (a, b) { return a.localeCompare(b, "sv"); });
+
     var sel = document.getElementById("districtSelect");
+    sel.innerHTML = '<option value="">Alla distrikt</option>';
     districts.forEach(function (d) {
       var opt = document.createElement("option");
       opt.value = d;
       opt.textContent = d;
       sel.appendChild(opt);
     });
+
+    if (state.district && districts.indexOf(state.district) === -1) {
+      state.district = "";
+    }
+    sel.value = state.district;
+  }
+
+  function setupDistrictSelect() {
+    var sel = document.getElementById("districtSelect");
     sel.addEventListener("change", function () {
       state.district = sel.value;
       refreshMap();
@@ -479,6 +582,8 @@
     .then(function (data) {
       state.all = data;
       buildPlaceIndex();
+      buildCountryFlags();
+      setupDistrictSelect();
       populateDistrictSelect();
       setupYouthToggle();
       buildMarkers();

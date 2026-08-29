@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Fotbollskarta – alla svenska fotbollsklubbar på karta</title>
 <meta name="description" content="Fotbollskarta visar alla Sveriges fotbollsklubbar på en interaktiv karta med adress, telefonnummer, hemsida och distrikt." />
+<link rel="canonical" href="https://fotbollskarta.se/karta.html" />
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
 <link rel="stylesheet" href="vendor/markercluster/MarkerCluster.css" />
 <link rel="stylesheet" href="vendor/markercluster/MarkerCluster.Default.css" />
@@ -15,6 +16,7 @@
   <header>
     <a class="brand" href="index.html" title="Till startsidan"><span class="ball">⚽</span> Fotbollskarta</a>
     <div class="controls">
+      <div class="country-flags" id="countryFlags" role="group" aria-label="Filtrera på land"></div>
       <div class="search-wrap">
         <input type="text" id="searchInput" placeholder="Sök stad, kommun eller klubb…" autocomplete="off" />
         <div class="suggestions" id="suggestions"></div>
@@ -56,11 +58,12 @@
   <div class="modal-box">
     <button class="modal-close" id="infoClose">✕</button>
     <h2>Om Fotbollskarta</h2>
-    <p>Fotbollskarta visar svenska fotbollsklubbar med adress, telefon och hemsida, samlade från Svenska Fotbollförbundets publika klubbregister.</p>
-    <p><strong>Positionering:</strong> klubbarna är geokodade från sin registrerade gatuadress via OpenStreetMap (Nominatim). Ca 82% matchar den faktiska adressen eller en identifierad anläggning/plan, ytterligare ca 1% är en anläggningsgissning på stadsnivå (t.ex. "Malmö IP") i orter med flera klubbar och kan i enstaka fall peka på fel plan, och resterande ca 17% landar på postnummer- eller ortnivå (ofullständig adress, t.ex. "Box 12"). Samtliga klubbar har nu antingen en bekräftad adress/anläggning eller en trygg postnummer-/ortposition. Adressen är kansliadressen, som för många mindre klubbar sammanfaller med klubbstugan/planen men inte alltid.</p>
+    <p>Fotbollskarta visar fotbollsklubbar i Sverige, Norge och Danmark med adress, telefon och hemsida. Flaggorna vid sökrutan väljer vilka länder som visas på kartan – som standard visas bara Sverige.</p>
+    <p><strong>Positionering (Sverige):</strong> klubbarna är geokodade från sin registrerade gatuadress via OpenStreetMap (Nominatim). Ca 82% matchar den faktiska adressen eller en identifierad anläggning/plan, ytterligare ca 1% är en anläggningsgissning på stadsnivå (t.ex. "Malmö IP") i orter med flera klubbar och kan i enstaka fall peka på fel plan, och resterande ca 17% landar på postnummer- eller ortnivå (ofullständig adress, t.ex. "Box 12"). Adressen är kansliadressen, som för många mindre klubbar sammanfaller med klubbstugan/planen men inte alltid.</p>
+    <p><strong>Positionering (Norge och Danmark):</strong> norska klubbar är geokodade från Brønnøysundregistrenes adressuppgifter (kompletterat med NFF:s egna klubbsidor för anläggningsadress där sådan fanns). Danska klubbar kommer redan färdiggeokodade från DGI:s föreningsregister. Ett fåtal klubbar utan någon geokodningsbar adress i källorna är inte med på kartan.</p>
     <p><strong>Loggor:</strong> visas där klubben har en registrerad bild hos SvFF. Fler loggor läggs till efter hand.</p>
-    <p><strong>Distrikt:</strong> filtret zoomar till och visar alla klubbar inom valt distrikt (baserat på klubbens fotbollsdistrikt), snarare än en ritad distriktsgräns.</p>
-    <p class="modal-meta">Data hämtad från SvFF:s klubbregister. Positionsdata och kartunderlag © OpenStreetMap-bidragsgivare, licens ODbL.</p>
+    <p><strong>Distrikt:</strong> filtret zoomar till och visar alla klubbar inom valt distrikt (baserat på klubbens fotbollsdistrikt/krets), snarare än en ritad distriktsgräns. Gäller Sverige och Norge – danska klubbar saknar distriktsindelning i källdatan.</p>
+    <p class="modal-meta">Data hämtad från SvFF:s, NFF:s (via Brønnøysundregistrene) och DGI:s publika klubbregister. Positionsdata och kartunderlag © OpenStreetMap-bidragsgivare, licens ODbL.</p>
   </div>
 </div>
 

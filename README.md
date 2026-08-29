@@ -1,15 +1,15 @@
 # Fotbollskarta
 
-En självständig, statisk webbsida med en interaktiv karta över svenska fotbollsklubbar (Leaflet + OpenStreetMap).
+En självständig, statisk webbsida med en interaktiv karta över fotbollsklubbar i Sverige, Norge och Danmark (Leaflet + OpenStreetMap).
 
 ## Innehåll
 
 - `index.html` – landningssidan (förklarar syftet, länkar vidare till kartan)
 - `karta.html` – själva kartan
 - `landing.css` – utseende för landningssidan
-- `app.js` – all logik för kartan (sök, distriktsfilter, popups)
+- `app.js` – all logik för kartan (sök, distriktsfilter, landsflaggor, popups)
 - `styles.css` – utseende för kartan
-- `data.json` – alla ~2854 klubbar (namn, adress, telefon, e-post, hemsida, distrikt, loggo-URL, koordinater, `has_youth`)
+- `data.json` – alla ~6194 klubbar (namn, adress, telefon, e-post, hemsida, distrikt, loggo-URL, koordinater, `has_youth`, `country`)
 - `vendor/` – Leaflet och Leaflet.markercluster (medskickade, ingen extern CDN krävs)
 
 ## Köra lokalt
@@ -42,6 +42,16 @@ Registret innehåller två grupper av klubbar, skilda åt med fältet `has_youth
 - **965 klubbar med enbart seniorverksamhet** (`has_youth: false`) – tillagda i en senare omgång (runda 6) från SvFF:s fullständiga klubblista. Dessa klumpas inte ihop med ungdomsklubbarna: ungdomsfiltret (`state.youthOnly` i `app.js`) utesluter alla klubbar där `has_youth` inte är sant, så filtreringen fungerar precis som innan för den ursprungliga gruppen.
 
 Varje ny klubb har fått distrikt/`association_id` kopplat utifrån sin adress (samma `district_by_prefix`-logik som resten av registret), så de dyker upp korrekt i distriktsfiltret tillsammans med de befintliga klubbarna. 4 klubbar (`FC Tolkarna`, `Husqvarna IF`, `Kalmarpolisens IF`, `Vasastans BK`) saknade helt adress/postnummer/ort i källdatan och kunde inte placeras automatiskt av skriptet – de låg i `round6_unplaceable.csv` för manuell uppföljning. Användaren sökte själv upp gatuadresserna (Google Maps), och de geokodades sedan mot OpenStreetMap och lades in (`geo_source: round6_manual_address`). Samtliga 965 seniorklubbar har nu en position.
+
+## Norge och Danmark – landsflaggor
+
+Kartan visar numera klubbar från tre länder, styrt av fältet `country` (`"SE"`/`"NO"`/`"DK"`) som varje klubb i `data.json` har. Flaggorna vid sökrutan i `karta.html` filtrerar på detta fält (`state.activeCountries` i `app.js`) – **som standard är bara Sverige aktivt**, klick på en flagga tonar ner den och släcker/tänder alla klubbar från det landet. Flaggraden byggs dynamiskt från vilka `country`-värden som faktiskt finns i datan, så ett fjärde land kräver ingen kodändring – bara klubbar med rätt `country`-fält i `data.json`. Distriktsfiltret räknas om till bara de distrikt som finns bland just nu aktiva länder. Söker man fram en klubb vars land är avstängt aktiveras det landet automatiskt (samma princip som redan gällde för distrikt-/ungdomsfiltret).
+
+**Norge** (1527 klubbar): källan är NFF:s (Norges Fotballforbund) 18 kretsöversikter på fotball.no för namn+krets, och Brønnøysundregistrenes öppna API (`data.brreg.no`, näringskod 93.120) för adresser – matchat på klubbnamn med en tokenbaserad poängsättning. 1225 klubbar (80%) fick sin gatuadress direkt, ytterligare 177 (12%) uppgraderades via NFF:s egen "besøksadresse" (klubbens anläggning snarare än kansliadress), och 121 (8%) landar på postnummernivå. 79 klubbar (5% av de ursprungliga 1608) kunde inte matchas säkert mot Brreg och saknar därför koordinater – de är inte med på kartan. `association_id` motsvarar NFF:s kretsnummer. `has_youth` är okänt för samtliga norska klubbar (`null`, källan skiljer inte på ungdoms-/seniorverksamhet) – de exkluderas därför ur "Endast ungdomsverksamhet"-filtret snarare än att felaktigt antas ha ungdomslag.
+
+**Danmark** (1813 klubbar): källan är DGI:s (Danske Gymnastik- og Idrætsforeninger) öppna API `api.dgi.dk`, som redan levererar färdiggeokodade koordinater (98% täckning i källan). Datan kom in på "lokations"-nivå (2129 rader, en klubb kan ha flera anläggningar) och grupperades till 1849 unika klubbar; av dem saknade 36 koordinater i samtliga sina lokationer och är inte med på kartan. `has_youth` beräknas från källans åldersgrupper (`Aldersgrupper`) – klubben räknas som ungdomsklubb om något av åldersspannen 0–6, 7–12 eller 13–18 år finns registrerat. Danska klubbar saknar distriktsindelning i källdatan (`district: ""`) och är därför osynliga i distriktsfiltret men fullt sökbara och synliga på kartan.
+
+**E-postadresser (Norge/Danmark)**: samma GDPR-princip som för Sverige (se nedan) tillämpades även här, med en egen matchare (`nordic_gdpr.py`) anpassad för norsk/dansk namngivning – bland annat att æ/ø/å transkribereras till både den vanliga (`ae`/`o`/`a`) och den äldre (`oe`/`aa`) webbkonventionen, danska pluralsuffix (`-ernes`/`-erne`/`-ens` osv) provas bortplockade, och att utskrivna organisationsord ("Idrettslag", "Fotballklubb", "Boldklub" …) räknas som sin vanliga förkortning (IL, FK, BK …) vid initialbygge. Av 1525 norska adresser behölls 1123 (74%), av 1273 danska behölls 731 (57%). Se `norway_gdpr_report.csv`/`denmark_gdpr_report.csv` för varje enskilt beslut.
 
 ## Kända begränsningar
 
