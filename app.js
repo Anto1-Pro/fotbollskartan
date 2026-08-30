@@ -97,7 +97,8 @@
   var COUNTRY_META = {
     SE: { flag: "🇸🇪", label: "Sverige" },
     NO: { flag: "🇳🇴", label: "Norge" },
-    DK: { flag: "🇩🇰", label: "Danmark" }
+    DK: { flag: "🇩🇰", label: "Danmark" },
+    FI: { flag: "🇫🇮", label: "Finland" }
   };
   var DEFAULT_ACTIVE_COUNTRY = "SE";
 
