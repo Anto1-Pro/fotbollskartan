@@ -11,6 +11,11 @@
   var initialLon = parseFloat(urlParams.get("lon"));
   var initialZoom = parseFloat(urlParams.get("zoom"));
   var hasInitialLocation = isFinite(initialLat) && isFinite(initialLon);
+
+  // Optional ?country=NO|DK|SE query param (used by the country-specific
+  // landing pages) pre-selects that country's flag instead of the default
+  // Sweden-only view. Validated against COUNTRY_META further down.
+  var initialCountry = (urlParams.get("country") || "").toUpperCase();
   var defaultCenter = hasInitialLocation ? [initialLat, initialLon] : [62.5, 15.8];
   var defaultZoom = hasInitialLocation ? (isFinite(initialZoom) ? initialZoom : 12) : 5;
 
@@ -123,8 +128,10 @@
       var lb = (COUNTRY_META[b] && COUNTRY_META[b].label) || b;
       return la.localeCompare(lb, "sv");
     });
+    var effectiveActiveCountry =
+      initialCountry && COUNTRY_META[initialCountry] ? initialCountry : DEFAULT_ACTIVE_COUNTRY;
     countries.forEach(function (code) {
-      state.activeCountries[code] = code === DEFAULT_ACTIVE_COUNTRY;
+      state.activeCountries[code] = code === effectiveActiveCountry;
     });
 
     var wrap = document.getElementById("countryFlags");
