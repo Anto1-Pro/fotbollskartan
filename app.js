@@ -98,7 +98,8 @@
     SE: { flag: "🇸🇪", label: "Sverige" },
     NO: { flag: "🇳🇴", label: "Norge" },
     DK: { flag: "🇩🇰", label: "Danmark" },
-    FI: { flag: "🇫🇮", label: "Finland" }
+    FI: { flag: "🇫🇮", label: "Finland" },
+    IS: { flag: "🇮🇸", label: "Island" }
   };
   var DEFAULT_ACTIVE_COUNTRY = "SE";
 
