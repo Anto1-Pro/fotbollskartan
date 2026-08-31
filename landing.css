@@ -460,3 +460,45 @@ footer a { color: var(--text-muted); text-decoration: underline; }
 @media (max-width: 480px) {
   .locate-btn { margin-left: 0; }
 }
+
+/* Symbolic row of the five Nordic country flags on the homepage hero */
+.nordic-flags-label {
+  text-align: center;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #d6f2de;
+  margin: 30px 0 12px;
+}
+
+.nordic-flags {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin: 0 auto 8px;
+}
+
+.nordic-flags .flag-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.nordic-flags .flag-emoji {
+  font-size: 2.1rem;
+  line-height: 1;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
+}
+
+.nordic-flags .flag-name {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #eafcef;
+}
+
+@media (max-width: 480px) {
+  .nordic-flags { gap: 14px; }
+  .nordic-flags .flag-emoji { font-size: 1.7rem; }
+}

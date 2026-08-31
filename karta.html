@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Fotbollskarta – alla svenska fotbollsklubbar på karta</title>
-<meta name="description" content="Fotbollskarta visar alla Sveriges fotbollsklubbar på en interaktiv karta med adress, telefonnummer, hemsida och distrikt." />
+<title>Fotbollskarta – fotbollsklubbar i hela Norden på karta</title>
+<meta name="description" content="Fotbollskarta visar fotbollsklubbar i Sverige, Norge, Danmark, Finland och Island på en interaktiv karta med adress, telefonnummer, hemsida och distrikt." />
 <link rel="canonical" href="https://www.fotbollskarta.se/karta.html" />
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
 <link rel="stylesheet" href="vendor/markercluster/MarkerCluster.css" />
@@ -58,12 +58,14 @@
   <div class="modal-box">
     <button class="modal-close" id="infoClose">✕</button>
     <h2>Om Fotbollskarta</h2>
-    <p>Fotbollskarta visar fotbollsklubbar i Sverige, Norge och Danmark med adress, telefon och hemsida. Flaggorna vid sökrutan väljer vilka länder som visas på kartan – som standard visas bara Sverige.</p>
+    <p>Fotbollskarta visar fotbollsklubbar i Sverige, Norge, Danmark, Finland och Island med adress, telefon och hemsida. Flaggorna vid sökrutan väljer vilka länder som visas på kartan – som standard visas bara Sverige.</p>
     <p><strong>Positionering (Sverige):</strong> klubbarna är geokodade från sin registrerade gatuadress via OpenStreetMap (Nominatim). Ca 82% matchar den faktiska adressen eller en identifierad anläggning/plan, ytterligare ca 1% är en anläggningsgissning på stadsnivå (t.ex. "Malmö IP") i orter med flera klubbar och kan i enstaka fall peka på fel plan, och resterande ca 17% landar på postnummer- eller ortnivå (ofullständig adress, t.ex. "Box 12"). Adressen är kansliadressen, som för många mindre klubbar sammanfaller med klubbstugan/planen men inte alltid.</p>
     <p><strong>Positionering (Norge och Danmark):</strong> norska klubbar är geokodade från Brønnøysundregistrenes adressuppgifter (kompletterat med NFF:s egna klubbsidor för anläggningsadress där sådan fanns). Danska klubbar kommer redan färdiggeokodade från DGI:s föreningsregister. Ett fåtal klubbar utan någon geokodningsbar adress i källorna är inte med på kartan.</p>
+    <p><strong>Positionering (Finland):</strong> finska klubbar kommer från Palloliittos (finska fotbollförbundets) tävlingsdataplattform Torneopal, som levererar färdiga koordinater per anläggning direkt från förbundet.</p>
+    <p><strong>Positionering (Island):</strong> isländska klubbar är hämtade från KSÍ:s (Islands fotbollsförbund) klubbregister, kompletterat med Já.is för ett fåtal större klubbar utan adress i förbundets egna uppgifter.</p>
     <p><strong>Loggor:</strong> visas där klubben har en registrerad bild hos SvFF. Fler loggor läggs till efter hand.</p>
-    <p><strong>Distrikt:</strong> filtret zoomar till och visar alla klubbar inom valt distrikt (baserat på klubbens fotbollsdistrikt/krets), snarare än en ritad distriktsgräns. Gäller Sverige och Norge – danska klubbar saknar distriktsindelning i källdatan.</p>
-    <p class="modal-meta">Data hämtad från SvFF:s, NFF:s (via Brønnøysundregistrene) och DGI:s publika klubbregister. Positionsdata och kartunderlag © OpenStreetMap-bidragsgivare, licens ODbL.</p>
+    <p><strong>Distrikt:</strong> filtret zoomar till och visar alla klubbar inom valt distrikt (baserat på klubbens fotbollsdistrikt/krets), snarare än en ritad distriktsgräns. Gäller Sverige och Norge – danska, finska och isländska klubbar saknar distriktsindelning i källdatan.</p>
+    <p class="modal-meta">Data hämtad från SvFF:s, NFF:s (via Brønnøysundregistrene), DGI:s, Palloliittos (via Torneopal) och KSÍ:s publika klubbregister. Positionsdata och kartunderlag © OpenStreetMap-bidragsgivare, licens ODbL.</p>
   </div>
 </div>
 
