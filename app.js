@@ -195,6 +195,13 @@
       .join(", ");
     var addrRow = addr ? '<div class="popup-row">📍 ' + addr + "</div>" : "";
     var youthBadge = c.has_youth ? '<span class="badge">Ungdomsverksamhet</span>' : "";
+    // Straffligan går bara att spela med de svenska föreningarna än
+    var playRow =
+      c.country === "SE"
+        ? '<div class="popup-row"><a class="popup-play" href="straffligan.html?klubb=' +
+          encodeURIComponent(c.id) +
+          '">⚽ Spela straffar för klubben</a></div>'
+        : "";
     var fallback = placeholderLogo(c.name);
     var logoImg =
       '<img class="popup-logo" src="' +
@@ -216,6 +223,7 @@
       emailRow +
       website +
       youthBadge +
+      playRow +
       "</div>"
     );
   }

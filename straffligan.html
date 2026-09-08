@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Straffligan – spela straffar för din förening | Fotbollskarta</title>
+<meta name="description" content="Välj din förening, utmana en annan klubb och avgör straffsparkstävlingen i 3D. Varje vinst ger din förening en poäng i Straffligan – se vilken klubb som leder topplistan." />
+<link rel="canonical" href="https://www.fotbollskarta.se/straffligan.html" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://www.fotbollskarta.se/straffligan.html" />
+<meta property="og:title" content="Straffligan – spela straffar för din förening | Fotbollskarta" />
+<meta property="og:description" content="Välj din förening, utmana en annan klubb och avgör straffsparkstävlingen i 3D. Varje vinst ger din förening en poäng i Straffligan – se vilken klubb som leder topplistan." />
+<meta property="og:image" content="https://www.fotbollskarta.se/social-share.jpg" />
+<meta property="og:image:width" content="1731" />
+<meta property="og:image:height" content="909" />
+<meta property="og:locale" content="sv_SE" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Straffligan – spela straffar för din förening | Fotbollskarta" />
+<meta name="twitter:description" content="Välj din förening, utmana en annan klubb och avgör straffsparkstävlingen i 3D. Varje vinst ger din förening en poäng i Straffligan – se vilken klubb som leder topplistan." />
+<meta name="twitter:image" content="https://www.fotbollskarta.se/social-share.jpg" />
+<link rel="stylesheet" href="landing.css" />
+<link rel="stylesheet" href="straffligan.css" />
+</head>
+<body class="straffliga-page">
+
+<nav class="nav">
+  <div class="container">
+    <a class="brand-link" href="index.html"><span class="ball">⚽</span> Fotbollskarta</a>
+    <a class="nav-cta" href="karta.html">Öppna kartan →</a>
+  </div>
+</nav>
+
+<!-- ===================== START ===================== -->
+<section class="screen is-active" id="screenIntro">
+  <header class="hero straff-hero">
+    <div class="container">
+      <p class="kicker">Straffligan</p>
+      <h1>Spela straffar för din förening</h1>
+      <p>Välj din klubb, utmana en annan förening och avgör det i mål. Fem straffar var – du skjuter fem och står i mål på fem. Varje vinst ger din förening en poäng i topplistan.</p>
+      <div class="cta-row">
+        <button class="btn-primary" type="button" id="btnStart">⚽ Välj din förening</button>
+        <button class="locate-btn" type="button" id="btnToBoard">🏆 Topplistan</button>
+        <button class="locate-btn" type="button" id="btnChangeClub" hidden>Byt förening</button>
+      </div>
+
+      <div class="rules-grid">
+        <div class="rule">
+          <span class="rule-num">5</span>
+          <h3>Du skjuter fem</h3>
+          <p>Sikta i målet och välj kraft. Hårdare skott är svårare för målvakten men också svårare att placera.</p>
+        </div>
+        <div class="rule">
+          <span class="rule-num">5</span>
+          <h3>Du står i mål på fem</h3>
+          <p>Välj vilket hörn du kastar dig mot innan skytten träffar bollen. Gissar du rätt hörn har du chansen.</p>
+        </div>
+        <div class="rule">
+          <span class="rule-num">∞</span>
+          <h3>Sudden death</h3>
+          <p>Står det lika efter fem straffar var fortsätter det med en straff åt varje lag i taget till någon avgör.</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="block">
+    <div class="container prose">
+      <h2>Så räknas poängen</h2>
+      <p>Vinner du straffsparkstävlingen får den förening du spelade för <strong>1 poäng</strong> i Straffligan. Förlorar du får motståndarföreningen poängen i stället. Avbryter du innan avgörandet är klart räknas det som förlust, så motståndaren får poängen – precis som en walkover.</p>
+      <p>Topplistan går att filtrera på land och fotbollsdistrikt, samma indelning som på <a href="karta.html">kartan</a>. Just nu är det de svenska föreningarna som är med i spelet; övriga Norden läggs till efter hand.</p>
+    </div>
+  </section>
+</section>
+
+<!-- ===================== KLUBBVAL ===================== -->
+<section class="screen" id="screenPick">
+  <div class="pick-wrap container">
+    <div class="pick-head">
+      <button class="btn-ghost" type="button" id="btnPickBack">← Tillbaka</button>
+      <div>
+        <p class="kicker" id="pickKicker">Steg 1 av 2</p>
+        <h2 id="pickTitle">Välj din förening</h2>
+        <p class="pick-sub" id="pickSub">Sök på klubbnamn eller ort, eller filtrera på distrikt.</p>
+      </div>
+    </div>
+
+    <div class="pick-controls">
+      <input type="search" id="clubSearch" placeholder="Sök förening eller ort…" autocomplete="off" aria-label="Sök förening" />
+      <select id="districtFilter" aria-label="Filtrera på distrikt">
+        <option value="">Alla distrikt</option>
+      </select>
+      <button class="btn-ghost" type="button" id="btnRandom">🎲 Slumpa</button>
+    </div>
+
+    <p class="pick-count" id="pickCount"></p>
+    <div class="club-grid" id="clubGrid"></div>
+    <p class="pick-more" id="pickMore" hidden>Sök vidare för att se fler föreningar.</p>
+  </div>
+</section>
+
+<!-- ===================== SPELET ===================== -->
+<section class="screen" id="screenGame">
+  <div class="game-shell">
+    <div class="scoreboard" id="scoreboard">
+      <div class="sb-team sb-home">
+        <img class="sb-crest" id="sbHomeCrest" alt="" />
+        <div class="sb-meta">
+          <span class="sb-name" id="sbHomeName">—</span>
+          <span class="sb-role">Du</span>
+        </div>
+      </div>
+      <div class="sb-score">
+        <span id="sbHomeScore">0</span><span class="sb-dash">–</span><span id="sbAwayScore">0</span>
+        <span class="sb-round" id="sbRound">Straff 1 av 5</span>
+      </div>
+      <div class="sb-team sb-away">
+        <div class="sb-meta">
+          <span class="sb-name" id="sbAwayName">—</span>
+          <span class="sb-role">Motståndare</span>
+        </div>
+        <img class="sb-crest" id="sbAwayCrest" alt="" />
+      </div>
+    </div>
+
+    <div class="sb-dots">
+      <div class="dots-row" id="dotsHome" aria-label="Dina straffar"></div>
+      <div class="dots-row" id="dotsAway" aria-label="Motståndarens straffar"></div>
+    </div>
+
+    <div class="stage">
+      <canvas id="pitch" aria-label="3D-vy av straffsparken"></canvas>
+
+      <div class="stage-loading" id="stageLoading"><span class="spinner"></span> Bygger arenan…</div>
+
+      <!-- Målvaktsläget: sex rutor att kasta sig mot -->
+      <div class="zone-picker" id="zonePicker" hidden>
+        <p class="zone-hint">Vilket hörn kastar du dig mot?</p>
+        <div class="zone-grid">
+          <button type="button" data-col="-1" data-row="1"><span>↖</span>Uppe vänster</button>
+          <button type="button" data-col="0"  data-row="1"><span>↑</span>Uppe mitten</button>
+          <button type="button" data-col="1"  data-row="1"><span>↗</span>Uppe höger</button>
+          <button type="button" data-col="-1" data-row="0"><span>↙</span>Nere vänster</button>
+          <button type="button" data-col="0"  data-row="0"><span>↓</span>Nere mitten</button>
+          <button type="button" data-col="1"  data-row="0"><span>↘</span>Nere höger</button>
+        </div>
+      </div>
+
+      <!-- Utfallstext mitt i bild -->
+      <div class="outcome" id="outcome" hidden><span id="outcomeText"></span></div>
+    </div>
+
+    <div class="controls" id="controls">
+      <p class="control-hint" id="controlHint">Tryck i målet för att sikta.</p>
+
+      <div class="power-wrap" id="powerWrap" hidden>
+        <div class="power-labels"><span>Placering</span><span>Kraft</span></div>
+        <div class="power-bar"><div class="power-marker" id="powerMarker"></div></div>
+      </div>
+
+      <div class="control-buttons">
+        <button class="btn-primary btn-shoot" type="button" id="btnAction" disabled>Sikta först</button>
+        <button class="btn-ghost btn-quit" type="button" id="btnQuit">Avbryt</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== RESULTAT ===================== -->
+<section class="screen" id="screenResult">
+  <div class="container result-wrap">
+    <div class="result-card" id="resultCard">
+      <p class="result-kicker" id="resultKicker">Straffligan</p>
+      <h2 id="resultTitle">—</h2>
+      <div class="result-teams">
+        <div class="result-team">
+          <img id="resHomeCrest" alt="" />
+          <span id="resHomeName"></span>
+        </div>
+        <div class="result-score"><span id="resScore">0–0</span></div>
+        <div class="result-team">
+          <img id="resAwayCrest" alt="" />
+          <span id="resAwayName"></span>
+        </div>
+      </div>
+      <p class="result-points" id="resultPoints"></p>
+      <p class="result-standing" id="resultStanding"></p>
+      <div class="cta-row">
+        <button class="btn-primary" type="button" id="btnAgain">⚽ Spela igen</button>
+        <button class="locate-btn" type="button" id="btnResultBoard">🏆 Topplistan</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== TOPPLISTA ===================== -->
+<section class="screen" id="screenBoard">
+  <div class="container board-wrap">
+    <div class="pick-head">
+      <button class="btn-ghost" type="button" id="btnBoardBack">← Tillbaka</button>
+      <div>
+        <p class="kicker">Straffligan</p>
+        <h2>Topplista</h2>
+        <p class="pick-sub">En poäng per vunnen straffsparkstävling. Förlust och avbrott ger poängen till motståndaren.</p>
+      </div>
+    </div>
+
+    <div class="pick-controls">
+      <select id="boardCountry" aria-label="Filtrera på land">
+        <option value="">Alla länder</option>
+      </select>
+      <select id="boardDistrict" aria-label="Filtrera på distrikt">
+        <option value="">Alla distrikt</option>
+      </select>
+      <button class="btn-ghost" type="button" id="btnBoardPlay">⚽ Spela</button>
+    </div>
+
+    <div class="board-table-wrap">
+      <table class="board-table">
+        <thead>
+          <tr>
+            <th class="c-rank">#</th>
+            <th class="c-club">Förening</th>
+            <th class="c-dist">Distrikt</th>
+            <th class="c-num">S</th>
+            <th class="c-num">V</th>
+            <th class="c-num">F</th>
+            <th class="c-num c-pts">P</th>
+          </tr>
+        </thead>
+        <tbody id="boardBody"></tbody>
+      </table>
+      <p class="board-empty" id="boardEmpty" hidden>Inga poäng registrerade än. Spela en straffsparkstävling så hamnar din förening här.</p>
+    </div>
+
+    <p class="board-note" id="boardNote"></p>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>Straffligan är ett spel för skojs skull – inga resultat har med föreningarnas riktiga verksamhet att göra. Klubbnamn, emblem och distriktsindelning kommer från samma klubbregister som <a href="karta.html">kartan</a>. Emblem visas i föreningarnas egen regi via Svenska Fotbollförbundets bildarkiv.</p>
+  </div>
+</footer>
+
+<script src="score-api.js"></script>
+<script type="module" src="straffligan.js"></script>
+<noscript><p style="text-align:center;padding:40px">Straffligan kräver JavaScript. <a href="karta.html">Gå till kartan</a> i stället.</p></noscript>
+
+</body>
+</html>

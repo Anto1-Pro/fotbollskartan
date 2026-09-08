@@ -1,0 +1,712 @@
+/* straffligan.css — Straffligan på Fotbollskarta.
+   Bygger vidare på landing.css och lägger bara till det spelet behöver. */
+
+:root {
+  --straff-dark: #071a10;
+  --straff-panel: #0e2a1a;
+  --straff-line: rgba(255, 255, 255, 0.14);
+  --gold: #ffd257;
+  --goal-green: #35c46a;
+  --miss-red: #e5544a;
+}
+
+.straffliga-page { background: var(--bg); }
+
+/* hidden ska alltid vinna över våra egna display-regler */
+[hidden] { display: none !important; }
+
+/* Bara en skärm i taget */
+.screen { display: none; }
+.screen.is-active { display: block; }
+
+.kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin: 0 0 10px;
+  color: var(--gold);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--brand-dark);
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  padding: 11px 20px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.btn-ghost:hover { border-color: var(--brand); background: var(--brand-light); }
+
+button.btn-primary { border: none; cursor: pointer; font-family: inherit; }
+button.locate-btn { font-family: inherit; }
+
+/* ---------------- Startskärm ---------------- */
+
+.straff-hero {
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 0%, rgba(53, 196, 106, 0.28), transparent 70%),
+    linear-gradient(165deg, #05130c 0%, #0b2f1c 55%, #12472a 100%);
+  padding-bottom: 64px;
+}
+
+.straff-hero h1 { margin-bottom: 14px; }
+
+.rules-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+  margin-top: 50px;
+  text-align: left;
+}
+
+.rule {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: var(--radius);
+  padding: 22px 20px;
+}
+
+.rule-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: #1d1403;
+  font-weight: 800;
+  font-size: 1.05rem;
+  margin-bottom: 12px;
+}
+
+.rule h3 { margin: 0 0 6px; font-size: 1rem; color: #fff; }
+.rule p { margin: 0; font-size: 0.88rem; line-height: 1.55; color: #cfe9d8; max-width: none; }
+
+/* ---------------- Klubbval ---------------- */
+
+.pick-wrap, .board-wrap { padding: 34px 20px 70px; }
+
+.pick-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 26px;
+  flex-wrap: wrap;
+}
+
+.pick-head .kicker { color: var(--brand); }
+.pick-head h2 { margin: 0 0 6px; font-size: clamp(1.4rem, 3vw, 1.9rem); color: var(--brand-dark); }
+.pick-sub { margin: 0; color: var(--text-muted); font-size: 0.94rem; max-width: 560px; }
+
+.pick-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.pick-controls input[type="search"] {
+  flex: 1 1 260px;
+  min-width: 0;
+  padding: 13px 16px;
+  font-size: 1rem;
+  font-family: inherit;
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text);
+}
+
+.pick-controls input[type="search"]:focus,
+.pick-controls select:focus { outline: none; border-color: var(--brand); }
+
+.pick-controls select {
+  padding: 13px 16px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.pick-count { font-size: 0.85rem; color: var(--text-muted); margin: 0 0 16px; }
+
+.club-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+  gap: 12px;
+}
+
+.club-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  background: var(--panel-bg);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.14s ease, transform 0.14s ease, box-shadow 0.14s ease;
+}
+
+.club-card:hover {
+  border-color: var(--brand);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.club-card .crest {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #f0f2f1;
+}
+
+.club-card .cc-name {
+  display: block;
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.club-card .cc-where {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.club-card .cc-pts {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--brand);
+  font-weight: 700;
+  margin-top: 3px;
+}
+
+.pick-more { text-align: center; color: var(--text-muted); font-size: 0.86rem; margin-top: 22px; }
+
+/* ---------------- Spelskärmen ---------------- */
+
+/* Spelvyn tar hela skärmen så att inget behöver scrollas mitt i en straff */
+#screenGame.is-active {
+  display: flex;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+}
+
+body.is-playing { overflow: hidden; }
+body.is-playing .nav,
+body.is-playing footer { display: none; }
+
+.game-shell {
+  background: var(--straff-dark);
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  color: #fff;
+}
+
+/* Ställning med emblem */
+.scoreboard {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px 8px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent);
+}
+
+.sb-team { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.sb-away { justify-content: flex-end; }
+.sb-away .sb-meta { text-align: right; }
+
+.sb-crest {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+}
+
+.sb-meta { min-width: 0; }
+
+.sb-name {
+  display: block;
+  font-weight: 700;
+  font-size: 0.94rem;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sb-role {
+  display: block;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8fc7a4;
+  margin-top: 2px;
+}
+
+.sb-score {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.6rem, 6vw, 2.3rem);
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.sb-dash { opacity: 0.45; margin: 0 4px; }
+
+.sb-round {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-top: 7px;
+}
+
+/* Prickar per straff */
+.sb-dots {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+  padding: 0 16px 10px;
+}
+
+.dots-row { display: flex; gap: 5px; min-height: 12px; }
+
+.dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  background: transparent;
+}
+
+.dot.is-goal { background: var(--goal-green); border-color: var(--goal-green); }
+.dot.is-miss { background: var(--miss-red); border-color: var(--miss-red); }
+.dot.is-next { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255, 210, 87, 0.2); }
+
+/* 3D-vyn */
+.stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 260px;
+  background: #050b16;
+}
+
+.stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: manipulation;
+  cursor: crosshair;
+}
+
+.stage-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 0.95rem;
+  color: #cfe9d8;
+  background: #050b16;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Hörnväljaren i målvaktsläget */
+.zone-picker {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  transform: translate(-50%, -50%);
+  width: min(560px, 92%);
+  text-align: center;
+}
+
+.zone-hint {
+  margin: 0 0 10px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gold);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+.zone-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.zone-grid button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 6px;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(7, 26, 16, 0.55);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 10px;
+  cursor: pointer;
+  backdrop-filter: blur(3px);
+  transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+}
+
+.zone-grid button span { font-size: 1.5rem; line-height: 1; }
+
+.zone-grid button:hover {
+  background: rgba(53, 196, 106, 0.4);
+  border-color: var(--gold);
+  transform: translateY(-2px);
+}
+
+/* Utfallstext */
+.outcome {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.outcome span {
+  font-size: clamp(1.8rem, 9vw, 3.6rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 6px 24px rgba(0, 0, 0, 0.85);
+  animation: pop 0.4s cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+
+.outcome.is-goal span { color: var(--goal-green); }
+.outcome.is-miss span { color: var(--miss-red); }
+.outcome.is-save span { color: var(--gold); }
+
+@keyframes pop {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Kontroller */
+.controls {
+  padding: 14px 16px 22px;
+  background: linear-gradient(0deg, rgba(255, 255, 255, 0.07), transparent);
+  text-align: center;
+}
+
+.control-hint {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: #cfe9d8;
+  min-height: 1.3em;
+}
+
+.power-wrap { max-width: 420px; margin: 0 auto 14px; }
+
+.power-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8fc7a4;
+  margin-bottom: 5px;
+}
+
+.power-bar {
+  position: relative;
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2f7d4b 0%, var(--goal-green) 45%, var(--gold) 72%, var(--miss-red) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+}
+
+.power-marker {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 5px;
+  background: #fff;
+  border-radius: 3px;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
+  transform: translateX(-50%);
+  left: 0;
+}
+
+.control-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn-shoot { min-width: 190px; justify-content: center; }
+.btn-shoot:disabled { opacity: 0.5; cursor: default; transform: none; box-shadow: none; }
+
+.btn-quit {
+  color: #cfe9d8;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.btn-quit:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.5); color: #fff; }
+
+/* ---------------- Resultat ---------------- */
+
+.result-wrap { padding: 50px 20px 80px; }
+
+.result-card {
+  max-width: 620px;
+  margin: 0 auto;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-lg);
+  padding: 38px 28px 34px;
+  text-align: center;
+}
+
+.result-card.is-win { border-top: 6px solid var(--brand); }
+.result-card.is-loss { border-top: 6px solid var(--miss-red); }
+
+.result-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+
+.result-card h2 { margin: 0 0 26px; font-size: clamp(1.5rem, 4vw, 2.1rem); color: var(--brand-dark); }
+.result-card.is-loss h2 { color: #b8352c; }
+
+.result-teams {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.result-team { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+.result-team img { width: 58px; height: 58px; object-fit: contain; }
+
+.result-team span { font-size: 0.86rem; font-weight: 700; line-height: 1.3; }
+
+.result-score {
+  font-size: clamp(1.8rem, 7vw, 2.6rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.result-points {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--brand-dark);
+  margin: 0 0 6px;
+}
+
+.result-standing { font-size: 0.9rem; color: var(--text-muted); margin: 0 0 26px; }
+
+/* locate-btn är gjord för den mörka hjältesektionen — på vitt kort behöver
+   den mörk text för att synas alls. */
+.result-card .locate-btn,
+.board-wrap .locate-btn {
+  color: var(--brand-dark);
+  border-color: var(--border);
+  background: transparent;
+}
+
+.result-card .locate-btn:hover,
+.board-wrap .locate-btn:hover {
+  background: var(--brand-light);
+  border-color: var(--brand);
+}
+
+/* ---------------- Topplista ---------------- */
+
+.board-table-wrap {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+}
+
+.board-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.board-table th {
+  text-align: left;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  padding: 13px 10px;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+
+.board-table td {
+  padding: 11px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.board-table tbody tr:last-child td { border-bottom: none; }
+.board-table tbody tr.is-you { background: var(--brand-light); }
+
+.c-rank { width: 44px; text-align: center !important; color: var(--text-muted); font-weight: 700; }
+.c-num { text-align: center !important; width: 46px; font-variant-numeric: tabular-nums; }
+.c-pts { font-weight: 800; color: var(--brand-dark); }
+.c-dist { color: var(--text-muted); font-size: 0.86rem; white-space: nowrap; }
+
+.board-club { display: flex; align-items: center; gap: 10px; }
+
+.board-club img {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  object-fit: contain;
+}
+
+.board-club b { font-weight: 700; }
+
+.board-empty { padding: 34px 20px; text-align: center; color: var(--text-muted); margin: 0; }
+
+.board-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 16px 0 0;
+  text-align: center;
+}
+
+/* ---------------- Mindre skärmar ---------------- */
+
+@media (max-width: 620px) {
+  .sb-crest { width: 34px; height: 34px; flex-basis: 34px; }
+  .sb-name { font-size: 0.82rem; }
+  .sb-role { display: none; }
+  .club-grid { grid-template-columns: 1fr 1fr; }
+  .club-card { padding: 10px; gap: 9px; }
+  .club-card .crest { width: 32px; height: 32px; flex-basis: 32px; }
+  .club-card .cc-name { font-size: 0.83rem; }
+  .zone-grid button { padding: 11px 4px; font-size: 0.64rem; }
+  .zone-grid button span { font-size: 1.25rem; }
+  .btn-shoot { min-width: 150px; }
+  .c-dist { display: none; }
+  .board-table th.c-dist { display: none; }
+  .pick-controls select { flex: 1 1 140px; }
+}
+
+@media (max-width: 400px) {
+  .club-grid { grid-template-columns: 1fr; }
+}
+
+/* Landskapsläge på mobil: ge 3D-vyn så mycket plats som möjligt */
+@media (max-height: 520px) {
+  .sb-dots { display: none; }
+  .scoreboard { padding: 6px 12px 4px; }
+  .controls { padding: 8px 12px 12px; }
+  .control-hint { margin-bottom: 8px; font-size: 0.82rem; }
+}
+
+/* ---------------- Bekräftelseruta ---------------- */
+
+.modal-back {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(5, 15, 10, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fade 0.15s ease;
+}
+
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+.modal {
+  background: var(--panel-bg);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  padding: 28px 26px 24px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+}
+
+.modal h3 { margin: 0 0 10px; font-size: 1.15rem; color: var(--brand-dark); }
+.modal p { margin: 0 0 22px; font-size: 0.94rem; line-height: 1.6; color: var(--text-muted); }
+
+.modal-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.abandon-note {
+  margin: 28px auto 0;
+  max-width: 520px;
+  background: rgba(229, 84, 74, 0.16);
+  border: 1px solid rgba(229, 84, 74, 0.45);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 0.88rem;
+  color: #ffd9d5;
+}
