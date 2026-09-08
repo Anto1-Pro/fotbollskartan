@@ -118,9 +118,12 @@ function crowdTexture() {
   g.fillRect(0, 0, W, H);
 
   // Sittande publik: rader av små färgklickar som ljusnar uppåt
+  // Dämpade toner — på håll läser en publik som ett stillsamt myller,
+  // inte som konfetti.
   const palette = [
-    "#d8dde0", "#c94b3c", "#2f5fa8", "#e0c34a", "#3f8a4a",
-    "#8a4fa8", "#e08a3c", "#1f2a33", "#b8bcc0", "#6b3f2a",
+    "#9aa0a4", "#8d4c44", "#3f5470", "#9c8a4e", "#4a6b4f",
+    "#5f4a68", "#8f6a44", "#232c33", "#7d838a", "#5a4436",
+    "#b0b4b8", "#6a6f75",
   ];
   const rows = 30;
   for (let r = 0; r < rows; r++) {
@@ -132,15 +135,16 @@ function crowdTexture() {
       g.fillStyle = palette[(Math.random() * palette.length) | 0];
       g.globalAlpha = 0.5 + Math.random() * 0.4;
       g.beginPath();
-      g.ellipse(x, y, 2.2 * jitter, 3.1 * jitter, 0, 0, Math.PI * 2);
+      g.ellipse(x, y, 1.7 * jitter, 2.4 * jitter, 0, 0, Math.PI * 2);
       g.fill();
     }
   }
   g.globalAlpha = 1;
   // Skugga nedåt så de nedre raderna hamnar i mörker
   const shade = g.createLinearGradient(0, H, 0, 0);
-  shade.addColorStop(0, "rgba(0,0,0,0.55)");
-  shade.addColorStop(1, "rgba(0,0,0,0)");
+  shade.addColorStop(0, "rgba(0,0,0,0.62)");
+  shade.addColorStop(0.6, "rgba(0,0,0,0.24)");
+  shade.addColorStop(1, "rgba(0,0,0,0.12)");
   g.fillStyle = shade;
   g.fillRect(0, 0, W, H);
 
@@ -222,82 +226,602 @@ function skyTexture() {
 }
 
 /* =====================================================================
-   Spelarfigurer — byggda av primitiver, med grupper för att kunna animera
+   Spelarfigurer
+   ---------------------------------------------------------------------
+   Kropparna byggs av svepta ellipsprofiler ("loft") i stället för lådor
+   och kapslar, så att axlar, armar och ben får mjuka övergångar och
+   människoliknande proportioner. Varje kroppsdel sitter i en egen grupp
+   så att den kan animeras: höft → rygg → bröst → nacke/axlar, och
+   höft → knä → fotled i benen.
    ===================================================================== */
 
+const HIP_Y = 0.93; // höfthöjd över gräset, för en spelare på ca 1,80 m
+
+/** Sveper en ellipsprofil längs y-axeln till en sluten, mjuk kropp. */
+function loft(rows, seg) {
+  const pos = [];
+  const uv = [];
+  const idx = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    for (let j = 0; j <= seg; j++) {
+      const a = (j / seg) * Math.PI * 2;
+      pos.push(Math.cos(a) * r.rx, r.y, Math.sin(a) * r.rz);
+      uv.push(j / seg, i / (rows.length - 1));
+    }
+  }
+  for (let i = 0; i < rows.length - 1; i++) {
+    for (let j = 0; j < seg; j++) {
+      const a = i * (seg + 1) + j;
+      const b = a + 1;
+      const c = a + seg + 1;
+      const d = c + 1;
+      idx.push(a, c, b, b, c, d);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+/** Rundar av båda ändarna av en lem som en kapsel. */
+function capFactor(t, k) {
+  if (t < k) {
+    const u = (k - t) / k;
+    return Math.sqrt(Math.max(0, 1 - u * u));
+  }
+  if (t > 1 - k) {
+    const u = (t - (1 - k)) / k;
+    return Math.sqrt(Math.max(0, 1 - u * u));
+  }
+  return 1;
+}
+
+/**
+ * Avsmalnande lem som hänger nedåt från origo (arm eller ben).
+ * rTop/rMid/rBot är radier vid fäste, mitt och ände.
+ */
+function limbGeometry(len, rTop, rMid, rBot, flat, capK) {
+  const rows = [];
+  const N = 14;
+  const k = capK == null ? 0.13 : capK;
+  // Raderna läggs i växande y (nedifrån och upp) — samma ordning som bålens
+  // profil — annars vänds trianglarna inåt och lemmen blir mörk.
+  for (let i = N; i >= 0; i--) {
+    const t = i / N;
+    const base = t < 0.5 ? rTop + (rMid - rTop) * (t / 0.5) : rMid + (rBot - rMid) * ((t - 0.5) / 0.5);
+    const r = base * capFactor(t, k);
+    rows.push({ y: -t * len, rx: r, rz: r * (flat || 0.9) });
+  }
+  return loft(rows, 14);
+}
+
+/** Bålen, från höft upp till nacken. */
+function torsoGeometry() {
+  return loft(
+    [
+      { y: -0.03, rx: 0.10, rz: 0.075 },
+      { y: 0.02, rx: 0.148, rz: 0.108 },
+      { y: 0.12, rx: 0.152, rz: 0.110 },
+      { y: 0.22, rx: 0.136, rz: 0.100 },
+      { y: 0.32, rx: 0.152, rz: 0.113 },
+      { y: 0.42, rx: 0.185, rz: 0.124 },
+      { y: 0.50, rx: 0.178, rz: 0.118 },
+      { y: 0.545, rx: 0.115, rz: 0.088 },
+      { y: 0.565, rx: 0.055, rz: 0.048 },
+    ],
+    18
+  );
+}
+
+/* ---------- Matchställ, ritat i canvas ---------- */
+
+const KIT_PATTERNS = ["solid", "stripes", "band", "halves"];
+
+/**
+ * Tröjtextur. u-axeln går runt bålen (u = 0,25 är framsidan, u = 0,75 är
+ * ryggen där numret hamnar), v-axeln uppåt.
+ */
+function kitTexture(primary, secondary, number, seed) {
+  const W = 512;
+  const H = 256;
+  const cv = document.createElement("canvas");
+  cv.width = W;
+  cv.height = H;
+  const g = cv.getContext("2d");
+  const hex = (c) => "#" + c.toString(16).padStart(6, "0");
+  const pattern = KIT_PATTERNS[seed % KIT_PATTERNS.length];
+
+  g.fillStyle = hex(primary);
+  g.fillRect(0, 0, W, H);
+
+  if (pattern === "stripes") {
+    g.fillStyle = hex(secondary);
+    for (let i = 0; i < 10; i++) g.fillRect((i * W) / 10, 0, W / 20, H);
+  } else if (pattern === "band") {
+    g.fillStyle = hex(secondary);
+    g.fillRect(0, H * 0.42, W, H * 0.2);
+  } else if (pattern === "halves") {
+    // u = 0–0,5 är kroppens ena sida, 0,5–1 den andra
+    g.fillStyle = hex(secondary);
+    g.fillRect(W * 0.5, 0, W * 0.5, H);
+  }
+
+  // Krage längst upp (v = 1 ligger vid canvas y = 0)
+  g.fillStyle = hex(secondary);
+  g.fillRect(0, 0, W, 16);
+
+  // Ryggnummer
+  g.save();
+  g.font = "bold 132px Impact, 'Arial Black', -apple-system, Helvetica, sans-serif";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.lineWidth = 9;
+  g.strokeStyle = "rgba(0,0,0,0.45)";
+  g.strokeText(String(number), W * 0.75, H * 0.44);
+  g.fillStyle = "#ffffff";
+  g.fillText(String(number), W * 0.75, H * 0.44);
+  g.restore();
+
+  // Lite skuggning i sidorna så bålen får djup
+  const shade = g.createLinearGradient(0, 0, W, 0);
+  shade.addColorStop(0, "rgba(0,0,0,0.28)");
+  shade.addColorStop(0.25, "rgba(255,255,255,0.06)");
+  shade.addColorStop(0.5, "rgba(0,0,0,0.3)");
+  shade.addColorStop(0.75, "rgba(255,255,255,0.04)");
+  shade.addColorStop(1, "rgba(0,0,0,0.28)");
+  g.fillStyle = shade;
+  g.fillRect(0, 0, W, H);
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/** Strumptextur med en rand upptill. */
+function sockTexture(primary, secondary) {
+  const cv = document.createElement("canvas");
+  cv.width = 32;
+  cv.height = 128;
+  const g = cv.getContext("2d");
+  const hex = (c) => "#" + c.toString(16).padStart(6, "0");
+  g.fillStyle = hex(primary);
+  g.fillRect(0, 0, 32, 128);
+  g.fillStyle = hex(secondary);
+  g.fillRect(0, 6, 32, 14);
+  g.fillRect(0, 26, 32, 6);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+// Spelet utgår från de svenska klubbarna, så utseendet är nordiskt viktat:
+// mest ljusa hudtoner och blont till ljusbrunt hår. Listorna innehåller
+// upprepningar för att styra fördelningen, och behåller några mörkare toner
+// eftersom svenska klubblag ser ut så i verkligheten.
+const SKIN_TONES = [
+  0xf3dcc6, 0xefd4ba, 0xe9cbae, 0xf3dcc6, 0xe3c0a2,
+  0xefd4ba, 0xe9cbae, 0xd9ab84, 0xf3dcc6, 0xc08a5c,
+  0xefd4ba, 0x8d5a36,
+];
+// Något dämpade nyanser — riktigt ljust blont smälter ihop med hudtonen
+const HAIR_TONES = [
+  0xc39a45, 0xa8813a, 0x8a6535, 0xc39a45, 0x6f5033,
+  0xa8813a, 0x8a6535, 0xb1552c, 0xc39a45, 0x3c2c1e,
+];
+const BOOT_TONES = [0xf2f2f2, 0x14181b, 0xe8402c, 0x2f7de0, 0xd8e021, 0xff7a00];
+
+/**
+ * Bygger en spelare.
+ * colors: { shirt, shorts, socks, gloves }
+ * opts:   { keeper, number, seed }
+ */
 function buildPlayer(colors, opts) {
-  const isKeeper = !!(opts && opts.keeper);
+  const o = opts || {};
+  const keeper = !!o.keeper;
+  const seed = o.seed || 1;
+  const number = o.number || (keeper ? 1 : 9);
+
   const root = new THREE.Group();
 
-  const skin = new THREE.MeshStandardMaterial({ color: 0xc98c62, roughness: 0.75 });
-  const shirt = new THREE.MeshStandardMaterial({ color: colors.shirt, roughness: 0.68 });
-  const shorts = new THREE.MeshStandardMaterial({ color: colors.shorts, roughness: 0.7 });
-  const socks = new THREE.MeshStandardMaterial({ color: colors.socks, roughness: 0.7 });
-  const boots = new THREE.MeshStandardMaterial({ color: 0x15181a, roughness: 0.45 });
-  const gloves = new THREE.MeshStandardMaterial({ color: colors.gloves || 0xe8e8e8, roughness: 0.6 });
-  const hair = new THREE.MeshStandardMaterial({ color: 0x2c2018, roughness: 0.9 });
+  const mat = (extra) =>
+    new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.66, metalness: 0.02 }, extra));
 
-  const add = (geo, mat, x, y, z, parent) => {
-    const m = new THREE.Mesh(geo, mat);
-    m.position.set(x, y, z);
+  const skinMat = mat({ color: SKIN_TONES[seed % SKIN_TONES.length], roughness: 0.72 });
+  const hairMat = mat({ color: HAIR_TONES[(seed >> 3) % HAIR_TONES.length], roughness: 0.88 });
+  const shirtMat = mat({ map: kitTexture(colors.shirt, colors.shorts, number, seed), roughness: 0.7 });
+  const sleeveMat = mat({ color: colors.shirt, roughness: 0.7 });
+  const cuffMat = mat({ color: colors.shorts, roughness: 0.7 });
+  const shortsMat = mat({ color: colors.shorts, roughness: 0.7 });
+  const sockTex = sockTexture(colors.socks, colors.shorts);
+  const sockMat = mat({ map: sockTex, roughness: 0.75 });
+  const bootMat = mat({ color: BOOT_TONES[(seed >> 5) % BOOT_TONES.length], roughness: 0.35, metalness: 0.15 });
+  const soleMat = mat({ color: 0x101314, roughness: 0.5 });
+  const gloveMat = mat({ color: colors.gloves || 0xf4f4f4, roughness: 0.55 });
+  const eyeMat = mat({ color: 0x1b1512, roughness: 0.3 });
+
+  const add = (parent, geo, material, x, y, z) => {
+    const m = new THREE.Mesh(geo, material);
+    m.position.set(x || 0, y || 0, z || 0);
     m.castShadow = true;
-    (parent || root).add(m);
+    parent.add(m);
     return m;
   };
 
-  // Bål — hoftgrupp så hela överkroppen kan böjas
+  /* --- Höft och bål --- */
   const hips = new THREE.Group();
-  hips.position.y = 0.92;
+  hips.position.y = HIP_Y;
   root.add(hips);
 
-  const torso = add(new THREE.CapsuleGeometry(0.19, 0.4, 4, 12), shirt, 0, 0.28, 0, hips);
-  torso.scale.set(1.15, 1, 0.75);
+  const spine = new THREE.Group(); // böjer hela överkroppen
+  hips.add(spine);
+  add(spine, torsoGeometry(), shirtMat, 0, 0, 0);
 
-  // Axelparti
-  const chest = add(new THREE.CapsuleGeometry(0.17, 0.16, 4, 12), shirt, 0, 0.5, 0, hips);
-  chest.rotation.z = Math.PI / 2;
-  chest.scale.set(1, 1.5, 0.85);
+  // Shorts sitter över höften och över bålens nedre del
+  add(
+    spine,
+    loft(
+      [
+        { y: 0.16, rx: 0.152, rz: 0.112 },
+        { y: 0.08, rx: 0.168, rz: 0.122 },
+        { y: -0.02, rx: 0.172, rz: 0.126 },
+        { y: -0.11, rx: 0.166, rz: 0.122 },
+        { y: -0.14, rx: 0.15, rz: 0.11 },
+      ],
+      16
+    ),
+    shortsMat,
+    0,
+    0,
+    0
+  );
 
-  // Huvud
+  const chest = new THREE.Group(); // fäste för nacke och axlar
+  chest.position.y = 0.5;
+  spine.add(chest);
+
+  /* --- Nacke och huvud --- */
+  add(chest, limbGeometry(0.12, 0.058, 0.056, 0.056, 0.9, 0.05), skinMat, 0, 0.12, 0);
+
   const head = new THREE.Group();
-  head.position.set(0, 0.68, 0);
-  hips.add(head);
-  add(new THREE.SphereGeometry(0.115, 18, 14), skin, 0, 0, 0, head);
-  const hairMesh = add(new THREE.SphereGeometry(0.12, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.6), hair, 0, 0.015, 0, head);
-  hairMesh.rotation.x = -0.15;
+  head.position.y = 0.115;
+  chest.add(head);
 
-  // Armar — egna grupper med axeln som pivot
+  const skull = add(head, new THREE.SphereGeometry(0.1, 22, 18), skinMat, 0, 0.075, 0.005);
+  skull.scale.set(0.9, 1.1, 1.0);
+  // Käke, så huvudet inte blir en kula
+  const jaw = add(head, new THREE.SphereGeometry(0.078, 18, 14), skinMat, 0, 0.03, 0.016);
+  jaw.scale.set(0.92, 0.85, 1.02);
+
+  // Frisyr — tre varianter
+  const style = (seed >> 7) % 3;
+  if (style === 0) {
+    const h = add(
+      head,
+      new THREE.SphereGeometry(0.104, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.62),
+      hairMat,
+      0,
+      0.078,
+      0.002
+    );
+    h.scale.set(0.93, 1.12, 1.02);
+  } else if (style === 1) {
+    const h = add(
+      head,
+      new THREE.SphereGeometry(0.108, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.78),
+      hairMat,
+      0,
+      0.072,
+      -0.008
+    );
+    h.scale.set(0.95, 1.05, 1.06);
+  } else {
+    const h = add(head, new THREE.SphereGeometry(0.112, 18, 14), hairMat, 0, 0.088, -0.012);
+    h.scale.set(0.9, 0.78, 0.95);
+  }
+
+  // Öron och ögon
+  [-1, 1].forEach((s) => {
+    const ear = add(head, new THREE.SphereGeometry(0.022, 10, 8), skinMat, s * 0.086, 0.055, -0.004);
+    ear.scale.set(0.55, 1, 0.8);
+    const eye = add(head, new THREE.SphereGeometry(0.0135, 10, 8), eyeMat, s * 0.036, 0.062, 0.084);
+    eye.scale.set(1, 0.85, 0.6);
+  });
+
+  /* --- Armar --- */
   const arms = {};
   [["left", -1], ["right", 1]].forEach(([side, s]) => {
     const shoulder = new THREE.Group();
-    shoulder.position.set(s * 0.235, 0.5, 0);
-    hips.add(shoulder);
-    const upper = add(new THREE.CapsuleGeometry(0.058, 0.24, 4, 8), shirt, 0, -0.14, 0, shoulder);
+    shoulder.position.set(s * 0.175, 0.0, 0);
+    chest.add(shoulder);
+
+    // Axelkappa i tröjfärg täcker leden
+    const capMesh = add(shoulder, new THREE.SphereGeometry(0.068, 16, 12), sleeveMat, 0, 0.008, 0);
+    capMesh.scale.set(1.06, 0.9, 0.98);
+
+    // Överarm: ärm ner till halva, sedan hud (målvakten har lång ärm)
+    const sleeveLen = keeper ? 0.31 : 0.17;
+    add(shoulder, limbGeometry(sleeveLen, 0.07, 0.066, 0.062, 0.9, 0.05), sleeveMat, 0, 0, 0);
+    // Målvakten har manschett i andrafärgen längst ut på den långa ärmen
+    if (keeper) add(shoulder, limbGeometry(0.04, 0.066, 0.066, 0.064, 0.9, 0.02), cuffMat, 0, -sleeveLen + 0.035, 0);
+    if (!keeper) add(shoulder, limbGeometry(0.3, 0.058, 0.054, 0.05), skinMat, 0, -0.14, 0);
+
     const elbow = new THREE.Group();
-    elbow.position.set(0, -0.28, 0);
+    elbow.position.y = -0.3;
     shoulder.add(elbow);
-    add(new THREE.CapsuleGeometry(0.05, 0.22, 4, 8), skin, 0, -0.13, 0, elbow);
-    const hand = add(new THREE.SphereGeometry(isKeeper ? 0.085 : 0.062, 12, 10), isKeeper ? gloves : skin, 0, -0.27, 0, elbow);
-    hand.scale.set(1, 1.25, 0.7);
-    arms[side] = { shoulder, elbow, upper, hand };
+    add(elbow, limbGeometry(0.27, 0.053, 0.046, 0.038), skinMat, 0, 0, 0);
+
+    const wrist = new THREE.Group();
+    wrist.position.y = -0.27;
+    elbow.add(wrist);
+    if (keeper) {
+      // Handske med manschett
+      add(wrist, limbGeometry(0.05, 0.048, 0.05, 0.05), gloveMat, 0, 0.01, 0);
+      const glove = add(wrist, limbGeometry(0.17, 0.05, 0.062, 0.03, 0.55), gloveMat, 0, -0.03, 0);
+      glove.scale.set(1.15, 1, 1);
+    } else {
+      const hand = add(wrist, limbGeometry(0.14, 0.038, 0.045, 0.022, 0.6), skinMat, 0, 0, 0);
+      hand.scale.set(1.1, 1, 1);
+    }
+    arms[side] = { shoulder, elbow, wrist };
   });
 
-  // Ben
+  /* --- Ben --- */
   const legs = {};
   [["left", -1], ["right", 1]].forEach(([side, s]) => {
     const hip = new THREE.Group();
-    hip.position.set(s * 0.105, 0, 0);
+    hip.position.set(s * 0.088, -0.05, 0);
     hips.add(hip);
-    add(new THREE.CapsuleGeometry(0.085, 0.26, 4, 10), shorts, 0, -0.17, 0, hip);
+    add(hip, limbGeometry(0.44, 0.108, 0.094, 0.072), skinMat, 0, 0, 0);
+    // Shortsben en bit ner på låret
+    add(hip, limbGeometry(0.21, 0.122, 0.118, 0.108, 0.9, 0.03), shortsMat, 0, 0.015, 0);
+
     const knee = new THREE.Group();
-    knee.position.set(0, -0.42, 0);
+    knee.position.y = -0.44;
     hip.add(knee);
-    add(new THREE.CapsuleGeometry(0.07, 0.28, 4, 10), socks, 0, -0.18, 0, knee);
-    const boot = add(new THREE.BoxGeometry(0.11, 0.075, 0.25), boots, 0, -0.36, 0.05, knee);
-    legs[side] = { hip, knee, boot };
+    add(knee, limbGeometry(0.4, 0.072, 0.062, 0.04), skinMat, 0, 0, 0);
+    // Strumpa från strax under knäet och ner i skon
+    add(knee, limbGeometry(0.36, 0.086, 0.075, 0.055, 0.92, 0.03), sockMat, 0, 0.02, 0);
+
+    const ankle = new THREE.Group();
+    ankle.position.y = -0.4;
+    knee.add(ankle);
+    const boot = add(ankle, new THREE.BoxGeometry(0.098, 0.062, 0.245), bootMat, 0, -0.028, 0.055);
+    boot.geometry.translate(0, 0, 0);
+    const heel = add(ankle, new THREE.SphereGeometry(0.05, 12, 10), bootMat, 0, -0.014, -0.028);
+    heel.scale.set(0.95, 0.8, 1);
+    add(ankle, new THREE.BoxGeometry(0.104, 0.016, 0.26), soleMat, 0, -0.06, 0.05);
+
+    legs[side] = { hip, knee, ankle };
   });
 
-  return { root, hips, head, arms, legs, materials: { shirt, shorts, socks, gloves } };
+  return { root, hips, spine, chest, head, arms, legs, keeper };
+}
+
+/* =====================================================================
+   Poser och animationer
+   ===================================================================== */
+
+/** Nollställer alla leder. */
+function poseReset(p) {
+  p.root.position.set(0, 0, 0);
+  p.root.rotation.set(0, 0, 0);
+  p.hips.position.set(0, HIP_Y, 0);
+  p.hips.rotation.set(0, 0, 0);
+  p.spine.rotation.set(0, 0, 0);
+  p.head.rotation.set(0, 0, 0);
+  ["left", "right"].forEach((s) => {
+    p.arms[s].shoulder.rotation.set(0, 0, 0);
+    p.arms[s].elbow.rotation.set(0, 0, 0);
+    p.arms[s].wrist.rotation.set(0, 0, 0);
+    p.legs[s].hip.rotation.set(0, 0, 0);
+    p.legs[s].knee.rotation.set(0, 0, 0);
+    p.legs[s].ankle.rotation.set(0, 0, 0);
+  });
+}
+
+/** Står still och andas. */
+function poseIdle(p, t) {
+  const b = Math.sin(t * 1.6);
+  poseReset(p);
+  p.hips.position.y = HIP_Y + b * 0.006;
+  p.spine.rotation.x = 0.05;
+  p.arms.left.shoulder.rotation.set(0.04, 0, -0.11);
+  p.arms.right.shoulder.rotation.set(0.04, 0, 0.11);
+  p.arms.left.elbow.rotation.x = -0.28 - b * 0.03;
+  p.arms.right.elbow.rotation.x = -0.28 + b * 0.03;
+  p.legs.left.hip.rotation.z = -0.05;
+  p.legs.right.hip.rotation.z = 0.05;
+  p.legs.left.knee.rotation.x = 0.06;
+  p.legs.right.knee.rotation.x = 0.06;
+}
+
+/** Löpsteg. phase räknas i hela steg, speed 0–1 skalar utslaget. */
+function poseRun(p, phase, speed) {
+  const th = phase * Math.PI * 2;
+  const s = Math.sin(th);
+  const A = 0.78 * speed;
+
+  p.legs.left.hip.rotation.set(A * s - 0.14 * speed, 0, -0.04);
+  p.legs.right.hip.rotation.set(-A * s - 0.14 * speed, 0, 0.04);
+  p.legs.left.knee.rotation.x = 0.14 + 1.35 * Math.max(0, -Math.sin(th - 0.95)) * speed;
+  p.legs.right.knee.rotation.x = 0.14 + 1.35 * Math.max(0, -Math.sin(th + Math.PI - 0.95)) * speed;
+  p.legs.left.ankle.rotation.x = -0.3 * Math.sin(th + 0.7) * speed;
+  p.legs.right.ankle.rotation.x = -0.3 * Math.sin(th + Math.PI + 0.7) * speed;
+
+  p.arms.left.shoulder.rotation.set(-A * 0.72 * s, 0, -0.14);
+  p.arms.right.shoulder.rotation.set(A * 0.72 * s, 0, 0.14);
+  p.arms.left.elbow.rotation.x = -(0.95 + 0.5 * s) * speed - 0.15;
+  p.arms.right.elbow.rotation.x = -(0.95 - 0.5 * s) * speed - 0.15;
+
+  p.spine.rotation.set(0.2 * speed, -0.15 * s * speed, 0);
+  p.head.rotation.set(-0.13 * speed, 0.15 * s * speed, 0);
+  p.hips.position.y = HIP_Y + 0.038 * Math.abs(s) * speed;
+  p.hips.rotation.z = 0.06 * s * speed;
+}
+
+/**
+ * Sista steget före sparken. Blandar från löpposen mot exakt samma värden
+ * som poseKick(0) börjar i, så att övergången blir sömlös.
+ */
+function poseBackswing(p, k) {
+  const e = k * k * (3 - 2 * k);
+  const bl = (obj, axis, target) => {
+    obj.rotation[axis] = obj.rotation[axis] + (target - obj.rotation[axis]) * e;
+  };
+  bl(p.legs.right.hip, "x", 1.3);
+  bl(p.legs.right.hip, "z", 0.04);
+  bl(p.legs.right.knee, "x", 1.85);
+  bl(p.legs.right.ankle, "x", 0.35);
+  bl(p.legs.left.hip, "x", -0.22);
+  bl(p.legs.left.hip, "z", -0.04);
+  bl(p.legs.left.knee, "x", 0.3);
+  bl(p.legs.left.ankle, "x", -0.1);
+  bl(p.arms.left.shoulder, "x", -1.15);
+  bl(p.arms.left.shoulder, "z", -0.69);
+  bl(p.arms.left.elbow, "x", -1.0);
+  bl(p.arms.right.shoulder, "x", 0.5);
+  bl(p.arms.right.shoulder, "z", 0.39);
+  bl(p.arms.right.elbow, "x", -0.3);
+  bl(p.spine, "x", 0.26);
+  bl(p.spine, "y", 0.32);
+  bl(p.spine, "z", -0.12);
+  bl(p.head, "x", 0.06);
+  bl(p.head, "y", -0.2);
+  bl(p.hips, "z", -0.1);
+  p.hips.position.y = p.hips.position.y + (HIP_Y - 0.03 - p.hips.position.y) * e;
+}
+
+/** Genom bollen och följ igenom. */
+function poseKick(p, k) {
+  const e = 1 - Math.pow(1 - k, 3);
+  p.legs.right.hip.rotation.x = 1.3 - 2.25 * e;
+  p.legs.right.knee.rotation.x = 1.8 * (1 - e) + 0.05;
+  p.legs.right.ankle.rotation.x = 0.35 - 0.55 * e;
+  p.legs.left.hip.rotation.x = -0.22 - 0.12 * e;
+  p.legs.left.knee.rotation.x = 0.3 - 0.22 * e;
+  p.arms.left.shoulder.rotation.set(-1.15 + 0.55 * e, 0, -0.69 + 0.3 * e);
+  p.arms.left.elbow.rotation.x = -1.0 + 0.35 * e;
+  p.arms.right.shoulder.rotation.set(0.5 - 0.9 * e, 0, 0.39 + 0.3 * e);
+  p.arms.right.elbow.rotation.x = -0.3 - 0.5 * e;
+  p.spine.rotation.set(0.26 - 0.1 * e, 0.32 - 0.67 * e, -0.12 + 0.05 * e);
+  p.head.rotation.set(0.06 - 0.14 * e, -0.2 + 0.28 * e, 0);
+  p.hips.rotation.z = -0.1 + 0.16 * e;
+  p.hips.position.y = HIP_Y - 0.03 - 0.05 * Math.sin(e * Math.PI);
+}
+
+/** Målvaktens grundställning: bred, låg, händerna framför. */
+function poseKeeperSet(p, t) {
+  const b = Math.sin(t * 6.5) * 0.5 + 0.5;
+  poseReset(p);
+  p.hips.position.y = HIP_Y - 0.13 - 0.025 * b;
+  p.legs.left.hip.rotation.set(0.06, 0, -0.34);
+  p.legs.right.hip.rotation.set(0.06, 0, 0.34);
+  p.legs.left.knee.rotation.x = 0.62 + 0.1 * b;
+  p.legs.right.knee.rotation.x = 0.62 + 0.1 * b;
+  p.legs.left.ankle.rotation.x = -0.3;
+  p.legs.right.ankle.rotation.x = -0.3;
+  p.spine.rotation.set(0.24, 0, 0);
+  p.arms.left.shoulder.rotation.set(-0.72, 0, -1.02 - 0.07 * b);
+  p.arms.right.shoulder.rotation.set(-0.72, 0, 1.02 + 0.07 * b);
+  p.arms.left.elbow.rotation.set(-1.0, 0, 0.25);
+  p.arms.right.elbow.rotation.set(-1.0, 0, -0.25);
+  p.arms.left.wrist.rotation.x = -0.35;
+  p.arms.right.wrist.rotation.x = -0.35;
+  p.head.rotation.x = -0.1;
+}
+
+/** Vrider en arm så att handen pekar mot en punkt i världen. */
+const _v = new THREE.Vector3();
+const _q = new THREE.Quaternion();
+const _up = new THREE.Vector3(0, -1, 0);
+
+function reachArm(arm, targetWorld, blend) {
+  const shoulder = arm.shoulder;
+  shoulder.updateWorldMatrix(true, false);
+  _v.copy(targetWorld);
+  shoulder.parent.worldToLocal(_v);
+  _v.sub(shoulder.position);
+  if (_v.lengthSq() < 1e-6) return;
+  _v.normalize();
+  _q.setFromUnitVectors(_up, _v);
+  shoulder.quaternion.slerp(_q, blend);
+  arm.elbow.rotation.x *= 1 - blend;
+}
+
+/**
+ * Målvaktens dyk. e = 0–1, dirX = -1/1 (världens x-riktning), high = högt
+ * hörn, ballWorld = bollens position att sträcka sig mot (får vara null),
+ * lateral = hur många meter i sidled dyket når.
+ */
+function poseDive(p, e, dirX, high, ballWorld, lateral) {
+  const s = 1 - Math.pow(1 - e, 2);
+
+  // Avstamp: kroppen kastar sig i sidled och roterar mot horisontalläge
+  p.root.position.x = (lateral || 0) * s;
+  p.root.position.z = 0.22 - 0.18 * s;
+  p.root.rotation.z = -dirX * (high ? 1.0 : 1.34) * s;
+  p.root.rotation.y = -dirX * 0.3 * s;
+  p.root.rotation.x = (high ? -0.12 : 0.16) * s;
+  p.hips.position.y = HIP_Y - 0.13 + (high ? 0.62 : -0.26) * s;
+  p.spine.rotation.set((high ? -0.34 : 0.26) * s, -dirX * 0.18 * s, 0);
+  p.head.rotation.set(-0.1 - 0.15 * s, dirX * 0.2 * s, 0);
+
+  // Benen sträcks ut och trailar efter
+  const lead = dirX > 0 ? "right" : "left";
+  const trail = dirX > 0 ? "left" : "right";
+  p.legs[lead].hip.rotation.set(0.06 + (high ? -0.5 : 0.2) * s, 0, (dirX > 0 ? 0.34 : -0.34) * (1 - 0.6 * s));
+  p.legs[lead].knee.rotation.x = 0.62 - 0.5 * s;
+  p.legs[trail].hip.rotation.set(0.06 + (high ? -0.2 : 0.55) * s, 0, (dirX > 0 ? -0.34 : 0.34) * (1 - 0.3 * s));
+  p.legs[trail].knee.rotation.x = 0.62 - 0.15 * s;
+  p.legs.left.ankle.rotation.x = -0.3 + 0.5 * s;
+  p.legs.right.ankle.rotation.x = -0.3 + 0.5 * s;
+
+  // Armarna: den ledande armen sträcks mot bollen, den andra följer med
+  p.arms.left.shoulder.rotation.set(-0.55, 0, -0.95 - (high ? 1.5 : 0.9) * s);
+  p.arms.right.shoulder.rotation.set(-0.55, 0, 0.95 + (high ? 1.5 : 0.9) * s);
+  p.arms.left.elbow.rotation.x = -0.75 * (1 - 0.85 * s);
+  p.arms.right.elbow.rotation.x = -0.75 * (1 - 0.85 * s);
+  if (ballWorld && s > 0.05) {
+    reachArm(p.arms[lead], ballWorld, Math.min(1, s * 1.1));
+    reachArm(p.arms[trail], ballWorld, Math.min(0.75, s * 0.7));
+  }
+}
+
+/**
+ * Räddning i mitten: ingen sidledsrörelse utan ett hopp uppåt (högt skott)
+ * eller ett fall ihop med benen (lågt skott).
+ */
+function poseCenterSave(p, e, high, ballWorld) {
+  const s = 1 - Math.pow(1 - e, 2);
+  if (high) {
+    p.hips.position.y = HIP_Y - 0.13 + 0.5 * s;
+    p.spine.rotation.set(-0.2 * s, 0, 0);
+    p.arms.left.shoulder.rotation.set(-0.55 - 2.1 * s, 0, -0.95 + 0.65 * s);
+    p.arms.right.shoulder.rotation.set(-0.55 - 2.1 * s, 0, 0.95 - 0.65 * s);
+    p.legs.left.hip.rotation.x = 0.06 - 0.5 * s;
+    p.legs.right.hip.rotation.x = 0.06 - 0.5 * s;
+    p.legs.left.knee.rotation.x = 0.62 + 0.5 * s;
+    p.legs.right.knee.rotation.x = 0.62 + 0.5 * s;
+  } else {
+    p.hips.position.y = HIP_Y - 0.13 - 0.42 * s;
+    p.spine.rotation.set(0.24 + 0.35 * s, 0, 0);
+    p.arms.left.shoulder.rotation.set(-0.9 - 0.5 * s, 0, -0.95 + 0.7 * s);
+    p.arms.right.shoulder.rotation.set(-0.9 - 0.5 * s, 0, 0.95 - 0.7 * s);
+    p.legs.left.hip.rotation.set(0.4 * s, 0, -0.34 - 0.3 * s);
+    p.legs.right.hip.rotation.set(0.4 * s, 0, 0.34 + 0.3 * s);
+    p.legs.left.knee.rotation.x = 0.62 + 0.7 * s;
+    p.legs.right.knee.rotation.x = 0.62 + 0.7 * s;
+  }
+  p.arms.left.elbow.rotation.x = -0.75 * (1 - 0.8 * s);
+  p.arms.right.elbow.rotation.x = -0.75 * (1 - 0.8 * s);
+  if (ballWorld && s > 0.1) {
+    reachArm(p.arms.left, ballWorld, Math.min(0.9, s));
+    reachArm(p.arms.right, ballWorld, Math.min(0.9, s));
+  }
 }
 
 /* =====================================================================
@@ -607,47 +1131,148 @@ export class PenaltyScene {
       return g;
     };
 
-    stand(62, 0, -20, 0, 7.5); // bakom målet
+    stand(64, 0, -23.5, 0, 6.5); // bakom målet
     stand(76, -32, 14, Math.PI / 2, 13); // långsida vänster
     stand(76, 32, 14, -Math.PI / 2, 13); // långsida höger
 
-    // Reklamskyltar bakom mållinjen
-    const boardMat = new THREE.MeshStandardMaterial({
-      map: this._boardTexture(),
-      roughness: 0.55,
-      emissive: 0x1a2a20,
-      emissiveIntensity: 0.25,
-    });
-    const boards = new THREE.Mesh(new THREE.PlaneGeometry(58, 1.05), boardMat);
+    // Reklamskyltar runt planen — samarbetet med Föreningsdomare i Sverige.
+    // Texturen är en bricka på tre skyltar (12 m) som upprepas längs sidan,
+    // så att texten får rätt proportioner i stället för att sträckas ut.
+    const boards = new THREE.Mesh(new THREE.PlaneGeometry(58, 1.05), this._boardMaterial(58));
     boards.position.set(0, 0.53, -14);
     this.scene.add(boards);
-    [-1, 1].forEach((s) => {
-      const side = new THREE.Mesh(new THREE.PlaneGeometry(46, 1.05), boardMat);
-      side.position.set(s * 29.5, 0.53, 12);
-      side.rotation.y = s > 0 ? -Math.PI / 2 : Math.PI / 2;
+    [-1, 1].forEach((sd) => {
+      const side = new THREE.Mesh(new THREE.PlaneGeometry(46, 1.05), this._boardMaterial(46));
+      side.position.set(sd * 29.5, 0.53, 12);
+      side.rotation.y = sd > 0 ? -Math.PI / 2 : Math.PI / 2;
       this.scene.add(side);
     });
   }
 
+  /** Material för en skyltrad av given längd, med rätt antal upprepningar. */
+  _boardMaterial(lengthMeters) {
+    if (!this._boardTex) this._boardTex = this._boardTexture();
+    const tex = this._boardTex.clone();
+    tex.needsUpdate = true;
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.repeat.set(lengthMeters / 12, 1);
+    return new THREE.MeshStandardMaterial({
+      map: tex,
+      roughness: 0.5,
+      emissive: 0x101a12,
+      emissiveIntensity: 0.35,
+    });
+  }
+
+  /** Föreningsdomares visselpipa, förenklad. */
+  _drawWhistle(g, x, y, s) {
+    g.save();
+    g.translate(x, y);
+    g.scale(s, s);
+    g.rotate(-0.12);
+    // Kropp
+    g.fillStyle = "#f5c518";
+    g.beginPath();
+    g.moveTo(-26, -14);
+    g.lineTo(16, -14);
+    g.quadraticCurveTo(30, -14, 30, 0);
+    g.quadraticCurveTo(30, 14, 16, 14);
+    g.lineTo(-26, 14);
+    g.quadraticCurveTo(-34, 14, -34, 0);
+    g.quadraticCurveTo(-34, -14, -26, -14);
+    g.closePath();
+    g.fill();
+    // Munstycke
+    g.fillStyle = "#f5c518";
+    g.fillRect(24, -5, 20, 10);
+    // Ljudhål
+    g.fillStyle = "#0c1c0f";
+    g.beginPath();
+    g.arc(-6, -1, 6.5, 0, Math.PI * 2);
+    g.fill();
+    // Limegrön accent
+    g.strokeStyle = "#8dc63f";
+    g.lineWidth = 5;
+    g.beginPath();
+    g.moveTo(-30, 16);
+    g.quadraticCurveTo(-4, 26, 24, 12);
+    g.stroke();
+    g.restore();
+  }
+
   _boardTexture() {
+    const PW = 768; // en skylt = 4 m
+    const H = 202;
     const cv = document.createElement("canvas");
-    cv.width = 2048;
-    cv.height = 64;
+    cv.width = PW * 3;
+    cv.height = H;
     const g = cv.getContext("2d");
-    g.fillStyle = "#0f2c1a";
-    g.fillRect(0, 0, 2048, 64);
-    const words = ["FOTBOLLSKARTA.SE", "STRAFFLIGAN", "ALLA NORDENS KLUBBAR"];
-    g.font = "bold 34px -apple-system, Helvetica, Arial, sans-serif";
+
+    const DARK = "#0c1c0f";
+    const YELLOW = "#f5c518";
+    const LIME = "#8dc63f";
+
+    const swoosh = (x0) => {
+      g.save();
+      g.beginPath();
+      g.moveTo(x0 + PW * 0.62, H);
+      g.quadraticCurveTo(x0 + PW * 0.82, H * 0.45, x0 + PW, 0);
+      g.lineTo(x0 + PW, H);
+      g.closePath();
+      g.fillStyle = "rgba(141,198,63,0.16)";
+      g.fill();
+      g.strokeStyle = LIME;
+      g.lineWidth = 5;
+      g.beginPath();
+      g.moveTo(x0 + PW * 0.6, H);
+      g.quadraticCurveTo(x0 + PW * 0.8, H * 0.45, x0 + PW * 0.98, 0);
+      g.stroke();
+      g.restore();
+    };
+
+    /* Skylt 1: logotyp och namn */
+    g.fillStyle = DARK;
+    g.fillRect(0, 0, PW, H);
+    swoosh(0);
+    this._drawWhistle(g, 92, H * 0.5, 1.15);
+    g.fillStyle = "#ffffff";
+    g.font = "bold 62px 'Helvetica Neue', Helvetica, Arial, sans-serif";
     g.textBaseline = "middle";
-    for (let i = 0; i < 6; i++) {
-      const x = i * 342 + 24;
-      g.fillStyle = i % 2 ? "#1a7a3c" : "#0f5227";
-      g.fillRect(x - 24, 0, 342, 64);
-      g.fillStyle = "rgba(255,255,255,0.92)";
-      g.fillText(words[i % words.length], x, 34);
-    }
+    g.fillText("FÖRENINGS", 162, H * 0.34);
+    g.fillText("DOMARE", 162, H * 0.66);
+    g.fillStyle = YELLOW;
+    g.font = "bold 26px 'Helvetica Neue', Helvetica, Arial, sans-serif";
+    g.fillText("I  S V E R I G E", 470, H * 0.7);
+
+    /* Skylt 2: sloganen, gul botten */
+    g.fillStyle = YELLOW;
+    g.fillRect(PW, 0, PW, H);
+    g.fillStyle = DARK;
+    g.font = "bold 58px 'Helvetica Neue', Helvetica, Arial, sans-serif";
+    g.textAlign = "center";
+    g.fillText("BOKA ERA FÖRENINGS-", PW * 1.5, H * 0.34);
+    g.fillText("DOMARE ENKELT!", PW * 1.5, H * 0.68);
+    g.textAlign = "left";
+
+    /* Skylt 3: adressen */
+    g.fillStyle = DARK;
+    g.fillRect(PW * 2, 0, PW, H);
+    swoosh(PW * 2);
+    g.fillStyle = "#ffffff";
+    g.font = "bold 64px 'Helvetica Neue', Helvetica, Arial, sans-serif";
+    g.textAlign = "center";
+    g.fillText("FORENINGSDOMARE.SE", PW * 2.5, H * 0.44);
+    g.strokeStyle = YELLOW;
+    g.lineWidth = 8;
+    g.beginPath();
+    g.moveTo(PW * 2 + 150, H * 0.72);
+    g.quadraticCurveTo(PW * 2.5, H * 0.86, PW * 3 - 150, H * 0.72);
+    g.stroke();
+    g.textAlign = "left";
+
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 8;
     return tex;
   }
 
@@ -709,20 +1334,29 @@ export class PenaltyScene {
     const keeperColors = this.phase === "save" ? this.teams.home : this.teams.away;
     const shooterColors = this.phase === "save" ? this.teams.away : this.teams.home;
 
+    // Utseende (hudton, frisyr, skor, tröjmönster) härleds ur lagfärgerna, så
+    // att samma klubb alltid får samma spelare.
+    const seedOf = (c) => ((c.shirt ^ (c.shorts * 7)) >>> 0) % 9973;
+    const kSeed = seedOf(keeperColors);
+    const sSeed = seedOf(shooterColors);
+
     // Målvakten bär klubbens egen tröjfärg, så man ser vilket lag som står i mål
     this.keeper = buildPlayer(
       {
         shirt: keeperColors.shirt,
         shorts: keeperColors.shorts,
         socks: keeperColors.socks,
-        gloves: 0xf2f2f2,
+        gloves: 0xf4f4f4,
       },
-      { keeper: true }
+      { keeper: true, number: 1, seed: kSeed }
     );
     this.keeper.root.position.set(0, 0, 0.22);
     this.scene.add(this.keeper.root);
 
-    this.shooter = buildPlayer(shooterColors, {});
+    this.shooter = buildPlayer(shooterColors, {
+      number: [7, 9, 10, 11, 17, 8][sSeed % 6],
+      seed: sSeed,
+    });
     this.scene.add(this.shooter.root);
 
     this._resetPoses();
@@ -730,39 +1364,18 @@ export class PenaltyScene {
 
   _resetPoses() {
     if (!this.keeper) return;
-    const k = this.keeper;
-    k.root.position.set(0, 0, 0.22);
-    k.root.rotation.set(0, 0, 0);
-    k.hips.rotation.set(0, 0, 0);
-    k.hips.position.y = 0.92;
-    // Målvaktens grundställning: lätt böjda knän, armarna ut
-    k.legs.left.hip.rotation.set(0.1, 0, -0.22);
-    k.legs.right.hip.rotation.set(0.1, 0, 0.22);
-    k.legs.left.knee.rotation.x = 0.3;
-    k.legs.right.knee.rotation.x = 0.3;
-    k.arms.left.shoulder.rotation.set(0, 0, 0.95);
-    k.arms.right.shoulder.rotation.set(0, 0, -0.95);
-    k.arms.left.elbow.rotation.set(0, 0, -0.5);
-    k.arms.right.elbow.rotation.set(0, 0, 0.5);
 
-    const s = this.shooter;
-    s.root.rotation.set(0, 0, 0);
-    s.hips.rotation.set(0, 0, 0);
-    s.hips.position.y = 0.92;
-    Object.values(s.legs).forEach((l) => {
-      l.hip.rotation.set(0, 0, 0);
-      l.knee.rotation.set(0, 0, 0);
-    });
-    s.arms.left.shoulder.rotation.set(0, 0, 0.16);
-    s.arms.right.shoulder.rotation.set(0, 0, -0.16);
-    s.arms.left.elbow.rotation.set(0, 0, 0);
-    s.arms.right.elbow.rotation.set(0, 0, 0);
+    poseKeeperSet(this.keeper, 0);
+    this.keeper.root.position.set(0, 0, 0.22);
+    this.keeper.root.rotation.set(0, 0, 0);
+
+    poseIdle(this.shooter, 0);
     // Startposition för upploppet, snett bakom bollen
-    s.root.position.set(-2.6, 0, SPOT_Z + 4.2);
-    s.root.rotation.y = Math.PI + 0.5;
+    this.shooter.root.position.set(-2.6, 0, SPOT_Z + 4.2);
+    this.shooter.root.rotation.set(0, Math.PI + 0.42, 0);
     // I skjutläget står man bakom sin egen spelare — han göms tills upploppet
     // börjar, så att han inte skymmer målet medan man siktar.
-    s.root.visible = this.phase !== "shoot";
+    this.shooter.root.visible = this.phase !== "shoot";
   }
 
   setPhase(phase, immediate) {
@@ -911,6 +1524,12 @@ export class PenaltyScene {
       diveTo = new THREE.Vector3(kz.col * (GOAL_W / 2) * 0.78, kz.row ? GOAL_H * 0.78 : GOAL_H * 0.22, 0.1);
     }
 
+    // Åt vilket håll, hur högt och hur långt målvakten kastar sig
+    const diveHigh = diveTo.y > GOAL_H * 0.5;
+    const centreDive = Math.abs(diveTo.x) < 0.9;
+    const diveDirX = Math.sign(diveTo.x) || 1;
+    const diveLateral = diveTo.x * 0.82;
+
     const runUp = 0.72;
     const dive = 0.42;
     const settle = o.outcome === "goal" ? 1.25 : 1.15;
@@ -934,33 +1553,17 @@ export class PenaltyScene {
           /* --- Upploppet --- */
           if (t < runUp) {
             const p = t / runUp;
-            const e = easeInOut(p);
-            s.root.position.set(lerp(-2.6, -0.42, e), 0, lerp(SPOT_Z + 4.2, SPOT_Z + 0.34, e));
-            s.root.rotation.y = lerp(Math.PI + 0.5, Math.PI + 0.12, e);
-            // Springsteg
-            const stride = Math.sin(p * Math.PI * 5) * 0.85;
-            s.legs.left.hip.rotation.x = stride * 0.6;
-            s.legs.right.hip.rotation.x = -stride * 0.6;
-            s.legs.left.knee.rotation.x = Math.max(0, -stride) * 1.1;
-            s.legs.right.knee.rotation.x = Math.max(0, stride) * 1.1;
-            s.arms.left.shoulder.rotation.x = -stride * 0.5;
-            s.arms.right.shoulder.rotation.x = stride * 0.5;
-            s.hips.position.y = 0.92 + Math.abs(Math.sin(p * Math.PI * 5)) * 0.035;
-            s.hips.rotation.x = 0.1 * p;
-
-            // Sista steget: svingen bakåt
-            if (p > 0.72) {
-              const q = (p - 0.72) / 0.28;
-              s.legs.right.hip.rotation.x = lerp(s.legs.right.hip.rotation.x, -1.15, q);
-              s.legs.right.knee.rotation.x = lerp(s.legs.right.knee.rotation.x, 1.5, q);
-              s.arms.left.shoulder.rotation.z = lerp(0.16, 1.15, q);
-            }
-
-            // Målvakten studsar på plats
-            const b = Math.sin(t * 9) * 0.03;
-            k.hips.position.y = 0.92 + b;
-            k.arms.left.shoulder.rotation.z = 0.95 + b * 2;
-            k.arms.right.shoulder.rotation.z = -0.95 - b * 2;
+            const travel = easeInOut(Math.min(1, p / 0.9));
+            s.root.position.set(
+              lerp(-2.6, -0.42, travel),
+              0,
+              lerp(SPOT_Z + 4.2, SPOT_Z + 0.34, travel)
+            );
+            s.root.rotation.y = lerp(Math.PI + 0.42, Math.PI + 0.1, travel);
+            // Knappt tre löpsteg, som saktar in inför sparken
+            poseRun(s, p * 2.7, clamp(1.15 - p * 0.55, 0.45, 1));
+            if (p > 0.66) poseBackswing(s, (p - 0.66) / 0.34);
+            poseKeeperSet(k, t);
             return;
           }
 
@@ -968,46 +1571,26 @@ export class PenaltyScene {
           const rawFt = (t - runUp) / flightTime;
           const ft = clamp(rawFt, 0, 1);
           if (rawFt < 1) {
-            const p = path.getPoint(easeOut(ft) * 0.35 + ft * 0.65);
-            self.ball.position.copy(p);
-            const spin = flightTime > 0 ? (1 / flightTime) * 12 : 12;
+            const bp = path.getPoint(easeOut(ft) * 0.35 + ft * 0.65);
+            self.ball.position.copy(bp);
+            const spin = (1 / flightTime) * 11;
             self.ball.rotation.x -= dt * spin;
             self.ball.rotation.y -= dt * spin * (o.curve || 0) * 2.5;
 
-            // Sparkbenet svingar igenom
-            const kick = clamp(ft * 4.2, 0, 1);
-            s.legs.right.hip.rotation.x = lerp(-1.15, 0.85, easeOut(kick));
-            s.legs.right.knee.rotation.x = lerp(1.5, 0.05, easeOut(kick));
-            s.legs.left.hip.rotation.x = lerp(0, -0.25, kick);
-            s.arms.left.shoulder.rotation.z = lerp(1.15, 0.5, kick);
-            s.hips.rotation.y = lerp(0, -0.35, kick);
-            s.hips.position.y = 0.92 - 0.05 * Math.sin(kick * Math.PI);
+            // Sparkbenet går genom bollen och följer igenom
+            poseKick(s, clamp(ft * 2.8, 0, 1));
+            s.root.position.z = SPOT_Z + 0.34 - Math.min(0.4, ft * 0.55);
 
-            // Målvaktens dyk
-            const dp = clamp((t - runUp - 0.03) / dive, 0, 1);
+            const dp = clamp((t - runUp - 0.02) / dive, 0, 1);
             if (dp > 0) {
-              const e = easeOut(dp);
-              const dir = Math.sign(diveTo.x) || 0;
-              const lateral = diveTo.x * 0.82;
-              const high = diveTo.y > GOAL_H * 0.5;
-              k.root.position.set(lateral * e, 0, 0.22 - 0.15 * e);
-              k.hips.position.y = 0.92 + (high ? 0.62 : -0.34) * e;
-              k.root.rotation.z = -dir * (high ? 0.95 : 1.32) * e;
-              k.root.rotation.y = -dir * 0.25 * e;
-              k.hips.rotation.x = (high ? -0.25 : 0.35) * e;
-              // Armarna sträcks mot bollen
-              k.arms.left.shoulder.rotation.z = lerp(0.95, dir < 0 ? 2.6 : 1.5, e);
-              k.arms.right.shoulder.rotation.z = lerp(-0.95, dir > 0 ? -2.6 : -1.5, e);
-              k.arms.left.elbow.rotation.z = lerp(-0.5, -0.05, e);
-              k.arms.right.elbow.rotation.z = lerp(0.5, 0.05, e);
-              k.arms.left.shoulder.rotation.x = lerp(0, -0.5, e);
-              k.arms.right.shoulder.rotation.x = lerp(0, -0.5, e);
-              k.legs.left.hip.rotation.x = lerp(0.1, high ? -0.7 : 0.15, e);
-              k.legs.right.hip.rotation.x = lerp(0.1, high ? -0.7 : 0.15, e);
-              k.legs.left.knee.rotation.x = lerp(0.3, 0.1, e);
-              k.legs.right.knee.rotation.x = lerp(0.3, 0.1, e);
+              // Räddar han bollen sträcker han sig mot dess faktiska bana,
+              // annars mot mitten av rutan han valde
+              const target = o.outcome === "save" ? self.ball.position : diveTo;
+              if (centreDive) poseCenterSave(k, dp, diveHigh, target);
+              else poseDive(k, dp, diveDirX, diveHigh, target, diveLateral);
+            } else {
+              poseKeeperSet(k, t);
             }
-
             return;
           }
 
@@ -1017,6 +1600,7 @@ export class PenaltyScene {
             self._shake = o.outcome === "goal" ? 0.05 : 0.08;
           }
           const st = clamp((t - runUp - flightTime) / settle, 0, 1);
+
           if (o.outcome === "goal") {
             // Bollen sätter sig i nätet, nätet svänger ut och tillbaka
             const bulge = Math.exp(-st * 5.5) * Math.cos(st * 26) * 0.5 + Math.exp(-st * 3.2) * 0.5;
@@ -1029,15 +1613,13 @@ export class PenaltyScene {
             self.ball.rotation.x -= dt * 3;
           } else if (o.outcome === "save") {
             // Bollen slås undan i den riktning målvakten kom ifrån
-            const dir = Math.sign(diveTo.x) || 1;
+            const dir = centreDive ? (Math.random() < 0.5 ? -1 : 1) * 0.4 : diveDirX;
             self.ball.position.set(
               diveTo.x + dir * st * 5.2,
               Math.max(BALL_R, diveTo.y + st * 1.2 - st * st * 3.4),
               lerp(diveTo.z, 3.6, st)
             );
-            self.ball.rotation.z -= dt * 8 * dir;
-            // Målvakten landar
-            k.root.position.y = -0.02 * Math.sin(st * Math.PI);
+            self.ball.rotation.z -= dt * 8 * (dir || 1);
           } else if (o.outcome === "post") {
             const dir = Math.sign(o.tx) || 1;
             self.ball.position.set(
@@ -1055,10 +1637,20 @@ export class PenaltyScene {
             self.ball.rotation.x -= dt * 6;
           }
 
-          // Målvakten reser sig långsamt
-          if (o.outcome !== "save" && st > 0.55) {
-            const r = (st - 0.55) / 0.45;
-            k.root.rotation.z *= 1 - r * 0.5;
+          // Skytten står kvar i sin följ-igenom
+          poseKick(s, 1);
+
+          // Målvakten landar och sjunker ner mot gräset
+          if (centreDive) poseCenterSave(k, 1, diveHigh, null);
+          else poseDive(k, 1, diveDirX, diveHigh, null, diveLateral);
+          const land = clamp((st - 0.15) / 0.5, 0, 1);
+          if (land > 0) {
+            k.hips.position.y = lerp(k.hips.position.y, centreDive ? 0.4 : 0.26, land);
+            if (!centreDive) k.root.rotation.z = lerp(k.root.rotation.z, -diveDirX * 1.5, land);
+            k.legs.left.knee.rotation.x = lerp(k.legs.left.knee.rotation.x, 0.45, land);
+            k.legs.right.knee.rotation.x = lerp(k.legs.right.knee.rotation.x, 0.6, land);
+            k.arms.left.elbow.rotation.x = lerp(k.arms.left.elbow.rotation.x, -0.5, land);
+            k.arms.right.elbow.rotation.x = lerp(k.arms.right.elbow.rotation.x, -0.5, land);
           }
 
           if (t >= total) {
