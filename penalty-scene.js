@@ -235,7 +235,10 @@ function skyTexture() {
    höft → knä → fotled i benen.
    ===================================================================== */
 
-const HIP_Y = 0.93; // höfthöjd över gräset, för en spelare på ca 1,80 m
+// Höfthöjden måste stämma med benens längd, annars står spelaren nedsjunken i
+// gräset. Kedjan från höftleden till sulan är 0,05 (höftfäste) + 0,44 (lår)
+// + 0,40 (underben) + 0,089 (fotled till sula) = 0,979 m.
+const HIP_Y = 0.98;
 
 /** Sveper en ellipsprofil längs y-axeln till en sluten, mjuk kropp. */
 function loft(rows, seg) {
@@ -378,6 +381,14 @@ const KIT_PATTERNS = ["solid", "stripes", "band", "halves"];
 
 const hexOf = (c) => "#" + c.toString(16).padStart(6, "0");
 
+/** Skalar en färg mot mörkare (f < 1) eller ljusare (f > 1). */
+function shade(c, f) {
+  const r = Math.min(255, Math.round(((c >> 16) & 255) * f));
+  const g = Math.min(255, Math.round(((c >> 8) & 255) * f));
+  const b = Math.min(255, Math.round((c & 255) * f));
+  return (r << 16) | (g << 8) | b;
+}
+
 /** Fint brus, så tyget inte blir spegelblankt. */
 function weave(g, W, H, alpha) {
   g.save();
@@ -498,6 +509,267 @@ function kitTexture(primary, secondary, number, seed, patternName) {
   // Nederkanten stoppas in i shortsen och ligger i skugga
   endShade(g, W, H, 0, 0.16);
 
+  return makeTexture(cv);
+}
+
+/**
+ * Huvudet som en svept profil i stället för sammansatta sfärer: haka, käke,
+ * kindben, tinningar, panna och hjässa. Ger både en mänsklig silhuett och
+ * förutsägbara UV — u = 0,25 är rakt framifrån, v = 0 hakan och v = 1 hjässan,
+ * med en rad per 1/8 i v. Det är den fasta indelningen ansiktstexturen målas
+ * efter.
+ */
+function headGeometry() {
+  return loft(
+    [
+      { y: -0.082, rx: 0.032, rz: 0.036 }, // haka
+      { y: -0.072, rx: 0.046, rz: 0.054 }, // hakspets
+      { y: -0.058, rx: 0.058, rz: 0.068 }, // käke
+      { y: -0.044, rx: 0.066, rz: 0.077 }, // käkvinkel
+      { y: -0.030, rx: 0.071, rz: 0.082 }, // mun
+      { y: -0.002, rx: 0.076, rz: 0.090 }, // kindben
+      { y: 0.030, rx: 0.081, rz: 0.094 },  // ögon
+      { y: 0.060, rx: 0.083, rz: 0.095 },  // tinningar
+      { y: 0.090, rx: 0.079, rz: 0.090 },  // panna
+      { y: 0.116, rx: 0.063, rz: 0.070 },  // hjässa
+      { y: 0.136, rx: 0.027, rz: 0.030 },  // topp
+    ],
+    32
+  );
+}
+
+// Ögonfärger, nordiskt viktade
+const IRIS_TONES = [0x4a7ba8, 0x6f8ea3, 0x54809e, 0x4a7ba8, 0x6d8467, 0x7a5a3a, 0x6f8ea3, 0x46331f];
+
+/**
+ * Ansiktet målas i canvas i stället för att byggas av småsfärer: bryn, ögon
+ * med lock och iris, näsvingar, näsborrar, mun, kindben och käklinje. På det
+ * avstånd spelarna syns i spelet läser ett målat ansikte betydligt bättre än
+ * geometri, och det går att ge varje spelare små egna drag.
+ *
+ * Huvudprofilen har 11 rader, så varje rad ligger på canvas-höjden
+ * 512 − 51,2·i: haka 512, hakspets 461, käke 410, käkvinkel 358, mun 307,
+ * kindben 256, ögon 205, tinningar 154, panna 102, hjässa 51, topp 0.
+ * Ansiktets mittlinje är x = 256.
+ */
+function faceTexture(skinTone, hairTone, seed) {
+  const W = 1024;
+  const H = 512;
+  const cv = document.createElement("canvas");
+  cv.width = W;
+  cv.height = H;
+  const g = cv.getContext("2d");
+  const MID = 256;
+
+  g.fillStyle = hexOf(skinTone);
+  g.fillRect(0, 0, W, H);
+
+  const soft = (x, y, rx, ry, color, alpha) => {
+    const grad = g.createRadialGradient(x, y, 0, x, y, Math.max(rx, ry));
+    grad.addColorStop(0, color.replace("ALPHA", alpha));
+    grad.addColorStop(1, color.replace("ALPHA", "0"));
+    g.save();
+    g.translate(x, y);
+    g.scale(1, ry / Math.max(rx, ry));
+    g.translate(-x, -y);
+    g.fillStyle = grad;
+    g.beginPath();
+    g.arc(x, y, Math.max(rx, ry), 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+  };
+  const DARK = "rgba(60,32,20,ALPHA)";
+  const LIGHT = "rgba(255,246,235,ALPHA)";
+  const WARM = "rgba(196,96,80,ALPHA)";
+
+  // Tinningar och sidor något mörkare, hjässan i hårskugga
+  const sides = g.createLinearGradient(0, 0, W, 0);
+  sides.addColorStop(0, "rgba(0,0,0,0.22)");
+  sides.addColorStop(0.25, "rgba(255,255,255,0.05)");
+  sides.addColorStop(0.5, "rgba(0,0,0,0.22)");
+  sides.addColorStop(0.75, "rgba(0,0,0,0.1)");
+  sides.addColorStop(1, "rgba(0,0,0,0.22)");
+  g.fillStyle = sides;
+  g.fillRect(0, 0, W, H);
+  const top = g.createLinearGradient(0, 0, 0, 150);
+  top.addColorStop(0, "rgba(0,0,0,0.3)");
+  top.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = top;
+  g.fillRect(0, 0, W, 150);
+
+  // Hårfästet målas med ojämn kant. Frisyren i geometri sitter ovanför den
+  // här linjen, så övergången mellan hår och hud blir mjuk i stället för att
+  // se ut som brättet på en hjälm.
+  g.save();
+  g.beginPath();
+  g.moveTo(0, 0);
+  g.lineTo(W, 0);
+  for (let x = W; x >= 0; x -= 8) {
+    const wave =
+      Math.sin(x * 0.021 + seed) * 13 +
+      Math.sin(x * 0.052 + seed * 1.7) * 7 +
+      Math.sin(x * 0.11) * 4;
+    g.lineTo(x, 122 + wave);
+  }
+  g.closePath();
+  g.fillStyle = hexOf(hairTone);
+  g.fill();
+  // Strån som sticker ner över pannan
+  g.strokeStyle = hexOf(hairTone);
+  g.lineWidth = 2;
+  for (let i = 0; i < 70; i++) {
+    const x = Math.random() * W;
+    const wave = Math.sin(x * 0.021 + seed) * 13 + Math.sin(x * 0.052 + seed * 1.7) * 7;
+    const y0 = 120 + wave;
+    g.globalAlpha = 0.55 + Math.random() * 0.4;
+    g.beginPath();
+    g.moveTo(x, y0 - 6);
+    g.quadraticCurveTo(x + (Math.random() - 0.5) * 8, y0 + 4, x + (Math.random() - 0.5) * 11, y0 + 3 + Math.random() * 9);
+    g.stroke();
+  }
+  g.globalAlpha = 1;
+  g.restore();
+  // Skugga från håret ner på pannan
+  soft(MID, 148, 160, 24, DARK, "0.22");
+
+  // Panna, kindben och käke
+  soft(MID, 150, 118, 44, LIGHT, "0.14");
+  soft(MID, 182, 130, 30, DARK, "0.2"); // brynvalk
+  [-1, 1].forEach((sd) => {
+    soft(MID + sd * 62, 258, 46, 32, LIGHT, "0.14"); // kindben
+    soft(MID + sd * 62, 276, 40, 24, WARM, "0.16");
+    soft(MID + sd * 104, 250, 44, 56, DARK, "0.12"); // kindens skugga
+  });
+  soft(MID, 462, 150, 48, DARK, "0.26"); // käklinje och hals
+  soft(MID, 330, 40, 18, DARK, "0.14"); // under underläppen
+
+  // Bryn i hårfärg
+  const browColor = hexOf(hairTone);
+  [-1, 1].forEach((sd) => {
+    g.save();
+    g.translate(MID + sd * 57, 180);
+    g.scale(sd, 1);
+    g.fillStyle = browColor;
+    g.globalAlpha = 0.9;
+    g.beginPath();
+    g.moveTo(-34, 6);
+    g.quadraticCurveTo(-6, -9, 30, -1);
+    g.quadraticCurveTo(-2, 1, -32, 14);
+    g.closePath();
+    g.fill();
+    g.restore();
+  });
+
+  // Ögon
+  const iris = IRIS_TONES[(seed >> 2) % IRIS_TONES.length];
+  [-1, 1].forEach((sd) => {
+    const ex = MID + sd * 57;
+    const ey = 206;
+    soft(ex, ey + 4, 40, 26, DARK, "0.16"); // ögonhåla
+    // Ögonvita
+    g.save();
+    g.beginPath();
+    g.ellipse(ex, ey, 25, 12, 0, 0, Math.PI * 2);
+    g.clip();
+    g.fillStyle = "#f2ece2";
+    g.fillRect(ex - 30, ey - 16, 60, 32);
+    // Iris och pupill
+    g.fillStyle = hexOf(iris);
+    g.beginPath();
+    g.arc(ex, ey + 1, 9.5, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = "rgba(0,0,0,0.35)";
+    g.beginPath();
+    g.arc(ex, ey + 1, 9.5, 0, Math.PI * 2);
+    g.lineWidth = 2.5;
+    g.strokeStyle = "rgba(30,20,14,0.5)";
+    g.stroke();
+    g.fillStyle = "#171208";
+    g.beginPath();
+    g.arc(ex, ey + 1, 4.6, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = "rgba(255,255,255,0.85)";
+    g.beginPath();
+    g.arc(ex - 4, ey - 3.5, 2.4, 0, Math.PI * 2);
+    g.fill();
+    // Skugga från ögonlocket
+    const lid = g.createLinearGradient(0, ey - 14, 0, ey + 2);
+    lid.addColorStop(0, "rgba(40,22,12,0.5)");
+    lid.addColorStop(1, "rgba(40,22,12,0)");
+    g.fillStyle = lid;
+    g.fillRect(ex - 30, ey - 16, 60, 20);
+    g.restore();
+    // Lockkant och undre kant
+    g.strokeStyle = "rgba(46,28,16,0.75)";
+    g.lineWidth = 3;
+    g.beginPath();
+    g.ellipse(ex, ey, 27, 13, 0, Math.PI, Math.PI * 2);
+    g.stroke();
+    g.strokeStyle = "rgba(46,28,16,0.28)";
+    g.lineWidth = 2;
+    g.beginPath();
+    g.ellipse(ex, ey + 1, 26, 12, 0, 0, Math.PI);
+    g.stroke();
+  });
+
+  // Näsa: vingar, spets och näsborrar
+  [-1, 1].forEach((sd) => {
+    const grad = g.createLinearGradient(MID + sd * 14, 0, MID + sd * 34, 0);
+    grad.addColorStop(0, "rgba(60,32,20,0)");
+    grad.addColorStop(0.6, "rgba(60,32,20,0.16)");
+    grad.addColorStop(1, "rgba(60,32,20,0)");
+    g.fillStyle = grad;
+    g.fillRect(MID + (sd < 0 ? -36 : 14), 208, 22, 78);
+    soft(MID + sd * 22, 286, 15, 11, DARK, "0.3");
+    g.fillStyle = "rgba(30,16,10,0.6)";
+    g.beginPath();
+    g.ellipse(MID + sd * 17, 289, 6, 4, sd * 0.3, 0, Math.PI * 2);
+    g.fill();
+  });
+  soft(MID, 279, 19, 13, LIGHT, "0.2");
+
+  // Mun
+  g.save();
+  g.fillStyle = "rgba(168,88,78,0.5)";
+  g.beginPath();
+  g.moveTo(MID - 45, 310);
+  g.quadraticCurveTo(MID - 22, 298, MID, 303);
+  g.quadraticCurveTo(MID + 22, 298, MID + 45, 310);
+  g.quadraticCurveTo(MID + 20, 326, MID, 324);
+  g.quadraticCurveTo(MID - 20, 326, MID - 45, 310);
+  g.closePath();
+  g.fill();
+  g.strokeStyle = "rgba(78,38,30,0.6)";
+  g.lineWidth = 3;
+  g.beginPath();
+  g.moveTo(MID - 43, 310);
+  g.quadraticCurveTo(MID, 315, MID + 43, 310);
+  g.stroke();
+  g.restore();
+  // Filtrum
+  g.strokeStyle = "rgba(60,32,20,0.14)";
+  g.lineWidth = 4;
+  g.beginPath();
+  g.moveTo(MID, 292);
+  g.lineTo(MID, 302);
+  g.stroke();
+
+  // Skäggstubb på en del spelare
+  if ((seed >> 6) % 3 === 0) {
+    g.fillStyle = "rgba(50,36,26,0.16)";
+    for (let i = 0; i < 1500; i++) {
+      const x = MID + (Math.random() - 0.5) * 210;
+      const y = 300 + Math.random() * 175;
+      if (Math.abs(x - MID) < 52 && y < 332) continue; // inte på munnen
+      g.fillRect(x, y, 1.6, 1.6);
+    }
+  }
+
+  // En varm ton över ansiktet, annars läser huden som grå
+  soft(MID, 250, 210, 200, "rgba(214,140,104,ALPHA)", "0.16");
+
+  // Hudstruktur
+  weave(g, W, H, 0.022);
   return makeTexture(cv);
 }
 
@@ -646,9 +918,9 @@ function skinLimbTexture(tone) {
 // upprepningar för att styra fördelningen, och behåller några mörkare toner
 // eftersom svenska klubblag ser ut så i verkligheten.
 const SKIN_TONES = [
-  0xf3dcc6, 0xefd4ba, 0xe9cbae, 0xf3dcc6, 0xe3c0a2,
-  0xefd4ba, 0xe9cbae, 0xd9ab84, 0xf3dcc6, 0xc08a5c,
-  0xefd4ba, 0x8d5a36,
+  0xe8d0b4, 0xe1c6a7, 0xd9bd9c, 0xe8d0b4, 0xd3b291,
+  0xe1c6a7, 0xd9bd9c, 0xc99f78, 0xe8d0b4, 0xb17e52,
+  0xe1c6a7, 0x84512f,
 ];
 // Något dämpade nyanser — riktigt ljust blont smälter ihop med hudtonen
 const HAIR_TONES = [
@@ -697,8 +969,12 @@ function buildPlayer(colors, opts) {
     metalness: 0.14,
   });
   const gloveMat = mat({ color: colors.gloves || 0xf4f4f4, roughness: 0.55 });
-  const eyeMat = mat({ color: 0x1b1512, roughness: 0.3 });
-  const scleraMat = mat({ color: 0xf0ece4, roughness: 0.35 });
+  // Näsan får en aning mörkare ton, annars lyser den mot det skuggade ansiktet
+  const noseMat = mat({ color: shade(skinTone, 0.88), roughness: 0.78 });
+  const faceMat = mat({
+    map: faceTexture(skinTone, HAIR_TONES[(seed >> 3) % HAIR_TONES.length], seed),
+    roughness: 0.76,
+  });
 
   const add = (parent, geo, material, x, y, z) => {
     const m = new THREE.Mesh(geo, material);
@@ -743,99 +1019,78 @@ function buildPlayer(colors, opts) {
 
   /* --- Nacke och huvud --- */
   const traps = add(chest, new THREE.SphereGeometry(0.1, 16, 12), shirtMat, 0, 0.03, 0);
-  traps.scale.set(1.5, 0.55, 0.85);
-  add(chest, limbGeometry(0.12, 0.058, 0.057, 0.056, 0.9, 0.05), limbMat, 0, 0.12, 0);
+  traps.scale.set(1.5, 0.62, 0.88);
+  add(chest, limbGeometry(0.115, 0.051, 0.05, 0.049, 0.92, 0.05), limbMat, 0, 0.115, 0);
 
   const head = new THREE.Group();
   head.position.y = 0.152;
   chest.add(head);
 
-  const skull = add(head, new THREE.SphereGeometry(0.1, 22, 18), skinMat, 0, 0.075, 0.005);
-  skull.scale.set(0.9, 1.1, 1.0);
-  // Käke, så huvudet inte blir en kula
-  const jaw = add(head, new THREE.SphereGeometry(0.078, 18, 14), skinMat, 0, 0.03, 0.016);
-  jaw.scale.set(0.92, 0.85, 1.02);
+  // Huvudet: en svept profil med målat ansikte. Profilens rader ligger på
+  // fasta v-höjder som ansiktstexturen är ritad efter.
+  add(head, headGeometry(), faceMat, 0, 0, 0);
 
-  // Frisyr — tre varianter
+  // Näsan är geometri, inte målad — den behövs för silhuetten i profil
+  const nose = add(head, new THREE.SphereGeometry(0.0098, 12, 10), noseMat, 0, -0.007, 0.078);
+  nose.scale.set(0.9, 1.4, 1.25);
+
+  // Öron
+  [-1, 1].forEach((sd) => {
+    const ear = add(head, new THREE.SphereGeometry(0.018, 10, 8), noseMat, sd * 0.076, 0.026, -0.01);
+    ear.scale.set(0.4, 1.3, 0.95);
+  });
+
+  /* --- Frisyr --- */
+
+  // Hjässan, i tre varianter: kort, längre och rakat
   const style = (seed >> 7) % 3;
   if (style === 0) {
     const h = add(
       head,
-      new THREE.SphereGeometry(0.104, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.52),
-      hairMat,
-      0,
-      0.082,
-      0.002
+      new THREE.SphereGeometry(0.088, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.5),
+      hairMat, 0, 0.076, -0.002
     );
-    h.scale.set(0.93, 1.12, 1.02);
+    h.scale.set(0.99, 1.15, 1.1);
   } else if (style === 1) {
     const h = add(
       head,
-      new THREE.SphereGeometry(0.108, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.66),
-      hairMat,
-      0,
-      0.078,
-      -0.008
+      new THREE.SphereGeometry(0.092, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.62),
+      hairMat, 0, 0.072, -0.008
     );
-    h.scale.set(0.95, 1.05, 1.06);
+    h.scale.set(1.0, 1.1, 1.11);
   } else {
-    const h = add(head, new THREE.SphereGeometry(0.112, 18, 14), hairMat, 0, 0.088, -0.012);
-    h.scale.set(0.9, 0.78, 0.95);
+    const h = add(head, new THREE.SphereGeometry(0.09, 20, 14), hairMat, 0, 0.076, -0.012);
+    h.scale.set(0.98, 0.72, 1.05);
   }
 
-  // Pannben och kindben, så ansiktet får relief
-  const brow = add(head, new THREE.SphereGeometry(0.05, 14, 10), skinMat, 0, 0.083, 0.05);
-  brow.scale.set(1.55, 0.42, 0.72);
+  // Bakhuvudet måste täckas, annars ser man en kal fläck rakt bakifrån —
+  // och målvakten ses just bakifrån hela målvaktsfasen.
+  const nape = add(head, new THREE.SphereGeometry(0.089, 18, 14), hairMat, 0, 0.038, -0.028);
+  nape.scale.set(0.98, 1.25, 0.78);
+
+  // Tinningarna, så hårfästet inte blir en rak linje över pannan
   [-1, 1].forEach((sd) => {
-    const cheek = add(head, new THREE.SphereGeometry(0.026, 12, 10), skinMat, sd * 0.05, 0.036, 0.055);
-    cheek.scale.set(1, 0.75, 0.7);
+    const temple = add(head, new THREE.SphereGeometry(0.028, 10, 8), hairMat, sd * 0.066, 0.05, 0.012);
+    temple.scale.set(0.55, 1.35, 0.9);
   });
 
-  // Näsa
-  const nose = add(head, new THREE.SphereGeometry(0.016, 12, 10), skinMat, 0, 0.05, 0.094);
-  nose.scale.set(0.8, 1.3, 1.55);
 
   // Ett par testar bryter av den släta hjässan
   const clumps = 3 + (seed % 3);
   for (let i = 0; i < clumps; i++) {
     const a = (i / clumps) * Math.PI * 2 + (seed % 7) * 0.3;
-    const r = 0.042 + ((seed >> (i + 1)) % 4) * 0.005;
+    const r = 0.036 + ((seed >> (i + 1)) % 4) * 0.005;
     const cl = add(
       head,
       new THREE.SphereGeometry(r, 10, 8),
       hairMat,
-      Math.cos(a) * 0.048,
+      Math.cos(a) * 0.042,
       0.108 + Math.sin(i * 1.7) * 0.008,
-      Math.sin(a) * 0.04 - 0.014
+      Math.sin(a) * 0.036 - 0.018
     );
-    cl.scale.set(1, 0.52, 1);
+    cl.scale.set(1, 0.5, 1);
     cl.rotation.z = Math.cos(a) * 0.3;
   }
-
-  // Nacken: håret måste täcka bakhuvudet också, annars ser man en kal fläck
-  // rakt bakifrån — och målvakten ses just bakifrån i spelet.
-  const nape = add(head, new THREE.SphereGeometry(0.101, 18, 14), hairMat, 0, 0.055, -0.03);
-  nape.scale.set(0.97, 1.0, 0.72);
-
-  // Tinningarna, så hårfästet inte blir en rak linje över pannan
-  [-1, 1].forEach((sd) => {
-    const temple = add(head, new THREE.SphereGeometry(0.034, 10, 8), hairMat, sd * 0.073, 0.072, 0.022);
-    temple.scale.set(0.65, 1.25, 0.85);
-  });
-
-  // Öron, ögon och bryn
-  [-1, 1].forEach((s) => {
-    const ear = add(head, new THREE.SphereGeometry(0.022, 10, 8), skinMat, s * 0.086, 0.052, -0.006);
-    ear.scale.set(0.5, 1.05, 0.85);
-
-    const sclera = add(head, new THREE.SphereGeometry(0.016, 10, 8), scleraMat, s * 0.037, 0.064, 0.079);
-    sclera.scale.set(1.05, 0.7, 0.5);
-    const pupil = add(head, new THREE.SphereGeometry(0.008, 8, 6), eyeMat, s * 0.038, 0.063, 0.088);
-    pupil.scale.set(1, 1, 0.5);
-
-    const brow = add(head, new THREE.BoxGeometry(0.032, 0.008, 0.012), hairMat, s * 0.037, 0.083, 0.086);
-    brow.rotation.z = -s * 0.12;
-  });
 
   /* --- Armar --- */
   const arms = {};
@@ -845,8 +1100,8 @@ function buildPlayer(colors, opts) {
     chest.add(shoulder);
 
     // Axelkappa i tröjfärg täcker leden
-    const capMesh = add(shoulder, new THREE.SphereGeometry(0.062, 16, 12), sleeveMat, 0, 0.014, 0);
-    capMesh.scale.set(1.05, 1.2, 0.98);
+    const capMesh = add(shoulder, new THREE.SphereGeometry(0.052, 16, 12), sleeveMat, 0, 0.018, 0);
+    capMesh.scale.set(1.08, 1.05, 0.9);
 
     // Överarm: ärm ner till halva, sedan hud (målvakten har lång ärm)
     const sleeveLen = keeper ? 0.31 : 0.17;
@@ -1039,11 +1294,11 @@ function poseKick(p, k) {
 function poseKeeperSet(p, t) {
   const b = Math.sin(t * 6.5) * 0.5 + 0.5;
   poseReset(p);
-  p.hips.position.y = HIP_Y - 0.13 - 0.025 * b;
-  p.legs.left.hip.rotation.set(0.06, 0, -0.34);
-  p.legs.right.hip.rotation.set(0.06, 0, 0.34);
-  p.legs.left.knee.rotation.x = 0.62 + 0.1 * b;
-  p.legs.right.knee.rotation.x = 0.62 + 0.1 * b;
+  p.hips.position.y = HIP_Y - 0.07 - 0.02 * b;
+  p.legs.left.hip.rotation.set(0.24, 0, -0.36);
+  p.legs.right.hip.rotation.set(0.24, 0, 0.36);
+  p.legs.left.knee.rotation.x = 0.7 + 0.1 * b;
+  p.legs.right.knee.rotation.x = 0.7 + 0.1 * b;
   p.legs.left.ankle.rotation.x = -0.3;
   p.legs.right.ankle.rotation.x = -0.3;
   p.spine.rotation.set(0.24, 0, 0);
@@ -1073,6 +1328,20 @@ function lookHeadAt(p, targetWorld, weight) {
 }
 
 /** Vrider en arm så att handen pekar mot en punkt i världen. */
+const _box = new THREE.Box3();
+
+/**
+ * Sista utposten mot att en spelare hamnar under gräset. Poserna räknar ut
+ * lyftet analytiskt, men en roterad kropp med utsträckta armar och ben är
+ * svår att täcka med formler. Här mäts i stället kroppens faktiska lägsta
+ * punkt i världen, och roten lyfts precis så mycket som behövs.
+ */
+function clampAboveGround(p, margin) {
+  _box.setFromObject(p.root);
+  const lift = (margin || 0) - _box.min.y;
+  if (lift > 0) p.root.position.y += lift;
+}
+
 const _v = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 const _up = new THREE.Vector3(0, -1, 0);
@@ -1156,7 +1425,7 @@ function poseDive(p, e, dirX, high, ballWorld, lateral) {
   p.root.rotation.z = -dirX * (high ? 1.0 : 1.34) * s;
   p.root.rotation.y = -dirX * 0.3 * s;
   p.root.rotation.x = (high ? -0.12 : 0.16) * s;
-  p.hips.position.y = HIP_Y - 0.13 + (high ? 0.16 : 0.02) * s;
+  p.hips.position.y = HIP_Y - 0.07 + (high ? 0.16 : 0.02) * s;
   p.spine.rotation.set((high ? -0.34 : 0.26) * s, -dirX * 0.18 * s, 0);
   p.head.rotation.set(-0.1 - 0.15 * s, dirX * 0.2 * s, 0);
 
@@ -1192,7 +1461,7 @@ function poseCenterSave(p, e, high, ballWorld) {
   p.root.rotation.set(0, 0, 0);
   p.root.position.y = high ? 0.45 * Math.sin(Math.min(1, s) * Math.PI * 0.8) : 0;
   if (high) {
-    p.hips.position.y = HIP_Y - 0.13 + 0.06 * s;
+    p.hips.position.y = HIP_Y - 0.07 + 0.06 * s;
     p.spine.rotation.set(-0.2 * s, 0, 0);
     p.arms.left.shoulder.rotation.set(-0.55 - 2.1 * s, 0, -0.95 + 0.65 * s);
     p.arms.right.shoulder.rotation.set(-0.55 - 2.1 * s, 0, 0.95 - 0.65 * s);
@@ -1201,7 +1470,7 @@ function poseCenterSave(p, e, high, ballWorld) {
     p.legs.left.knee.rotation.x = 0.62 + 0.5 * s;
     p.legs.right.knee.rotation.x = 0.62 + 0.5 * s;
   } else {
-    p.hips.position.y = HIP_Y - 0.13 - 0.42 * s;
+    p.hips.position.y = HIP_Y - 0.07 - 0.4 * s;
     p.spine.rotation.set(0.24 + 0.35 * s, 0, 0);
     p.arms.left.shoulder.rotation.set(-0.9 - 0.5 * s, 0, -0.95 + 0.7 * s);
     p.arms.right.shoulder.rotation.set(-0.9 - 0.5 * s, 0, 0.95 - 0.7 * s);
@@ -1776,6 +2045,9 @@ export class PenaltyScene {
     // I skjutläget står man bakom sin egen spelare — han göms tills upploppet
     // börjar, så att han inte skymmer målet medan man siktar.
     this.shooter.root.visible = this.phase !== "shoot";
+
+    clampAboveGround(this.keeper, 0.005);
+    clampAboveGround(this.shooter, 0.005);
   }
 
   setPhase(phase, immediate) {
@@ -1988,6 +2260,8 @@ export class PenaltyScene {
             if (p > 0.66) poseBackswing(s, (p - 0.66) / 0.34);
             poseKeeperSet(k, t);
             lookHeadAt(k, self.ball.position, 0.35);
+            clampAboveGround(k, 0.005);
+            clampAboveGround(s, 0.005);
             return;
           }
 
@@ -2007,6 +2281,7 @@ export class PenaltyScene {
             // Båda följer bollen med blicken
             lookHeadAt(s, self.ball.position, 0.35);
 
+            clampAboveGround(s, 0.005);
             const dp = clamp((t - runUp - 0.02) / dive, 0, 1);
             if (dp > 0) {
               // Räddar han bollen sträcker han sig mot dess faktiska bana,
@@ -2015,9 +2290,12 @@ export class PenaltyScene {
               if (centreDive) poseCenterSave(k, dp, diveHigh, target);
               else poseDive(k, dp, diveDirX, diveHigh, target, diveLateral);
               lookHeadAt(k, self.ball.position, 0.4);
+              clampAboveGround(k, 0.005);
+          clampAboveGround(s, 0.005);
             } else {
               poseKeeperSet(k, t);
               lookHeadAt(k, self.ball.position, 0.5);
+              clampAboveGround(k, 0.005);
             }
             return;
           }
@@ -2081,6 +2359,8 @@ export class PenaltyScene {
             k.arms.left.elbow.rotation.x = lerp(k.arms.left.elbow.rotation.x, -0.5, land);
             k.arms.right.elbow.rotation.x = lerp(k.arms.right.elbow.rotation.x, -0.5, land);
           }
+          clampAboveGround(k, 0.005);
+          clampAboveGround(s, 0.005);
 
           if (t >= total) {
             self._anim = null;
