@@ -665,3 +665,7 @@ footer a { color: var(--text-muted); text-decoration: underline; }
   .hero .screenshot-frame { margin-top: 28px; }
   .hero .hero-lead { margin-top: 28px; }
 }
+
+.hero .btn-under-map { margin-top: 26px; }
+
+.hero .btn-under-map + .hero-lead { margin-top: 34px; }
