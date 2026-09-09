@@ -436,6 +436,7 @@ function filteredClubs() {
 }
 
 let boardTotals = {};
+let boardPeriod = "month"; // "month" = denna månad, "all" = alla tider
 
 function renderClubs() {
   const list = filteredClubs();
@@ -980,7 +981,11 @@ async function finishMatch(won) {
 async function abandonMatch() {
   const ok = await confirmBox(
     "Avbryta straffavgörandet?",
-    "Om du avbryter nu räknas det som förlust och " + state.opp.name + " får poängen.",
+    "Om du avbryter nu räknas det som förlust: " +
+      state.opp.name +
+      " får +2 poäng och " +
+      state.own.name +
+      " tappar 1 poäng.",
     "Avbryt matchen"
   );
   if (!ok) return;
@@ -1011,14 +1016,25 @@ async function showResult(kind) {
 
   $("resultPoints").textContent =
     kind === "win"
-      ? "+1 poäng till " + state.own.name
-      : "+1 poäng till " + state.opp.name +
+      ? "+2 poäng till " + state.own.name
+      : "+2 poäng till " +
+        state.opp.name +
+        ", −1 för " +
+        state.own.name +
         (kind === "abandon" ? " (avbrott räknas som förlust)" : "");
 
   const stats = await window.FKScore.statsFor(state.own.id).catch(() => null);
+  const monthStats = await window.FKScore.statsFor(state.own.id, "month").catch(() => null);
   $("resultStanding").textContent = stats
-    ? state.own.name + " har nu " + stats.points + (stats.points === 1 ? " poäng" : " poäng") +
-      " på " + stats.played + (stats.played === 1 ? " match" : " matcher") + " i Straffligan."
+    ? state.own.name +
+      " har nu " +
+      stats.points +
+      (stats.points === 1 ? " poäng" : " poäng") +
+      " på " +
+      stats.played +
+      (stats.played === 1 ? " match" : " matcher") +
+      " i Straffligan" +
+      (monthStats ? " – varav " + monthStats.points + " denna månad." : ".")
     : "";
 
   show("screenResult");
@@ -1028,10 +1044,56 @@ async function showResult(kind) {
    Topplistan
    ===================================================================== */
 
-async function renderBoard() {
-  const rows = await window.FKScore.leaderboard().catch(() => []);
-  boardTotals = {};
-  rows.forEach((r) => (boardTotals[r.clubId] = r));
+const MONTH_NAMES = [
+  "januari", "februari", "mars", "april", "maj", "juni",
+  "juli", "augusti", "september", "oktober", "november", "december",
+];
+
+/** "September 2026" av "2026-09-01". */
+function monthLabel(iso) {
+  const bits = String(iso || "").split("-");
+  const name = MONTH_NAMES[Number(bits[1]) - 1] || "";
+  if (!name) return "Denna månad";
+  return name.charAt(0).toUpperCase() + name.slice(1) + " " + bits[0];
+}
+
+/** Vilken månad listan nollställs nästa gång. */
+function nextResetLabel(iso) {
+  const bits = String(iso || "").split("-");
+  let y = Number(bits[0]);
+  let m = Number(bits[1]) + 1;
+  if (m > 12) { m = 1; y += 1; }
+  return "1 " + (MONTH_NAMES[m - 1] || "") + " " + y;
+}
+
+function setBoardPeriod(period) {
+  boardPeriod = period === "month" ? "month" : "all";
+  Array.prototype.forEach.call(document.querySelectorAll(".board-tab"), (b) => {
+    const on = b.dataset.period === boardPeriod;
+    b.classList.toggle("is-on", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  renderBoard(true);
+}
+
+async function renderBoard(force) {
+  const period = boardPeriod;
+  const month = window.FKScore.currentMonth();
+  $("boardPeriod").textContent =
+    period === "month"
+      ? monthLabel(month) + " · listan nollställs " + nextResetLabel(month)
+      : "Alla poäng sedan Straffligan startade";
+
+  const body = $("boardBody");
+  if (!body.children.length) $("boardLoading").hidden = false;
+  const rows = await window.FKScore.leaderboard(period, force).catch(() => []);
+  $("boardLoading").hidden = true;
+  if (period !== boardPeriod) return; // besökaren bytte flik under hämtningen
+  if (period === "all") {
+    // Klubbkorten visar totalpoängen, inte månadens
+    boardTotals = {};
+    rows.forEach((r) => (boardTotals[r.clubId] = r));
+  }
 
   const country = $("boardCountry").value;
   const district = $("boardDistrict").value;
@@ -1045,7 +1107,6 @@ async function renderBoard() {
     return true;
   });
 
-  const body = $("boardBody");
   body.innerHTML = "";
   visible.forEach((r, i) => {
     const c = state.byId[r.clubId];
@@ -1066,12 +1127,29 @@ async function renderBoard() {
   });
 
   $("boardEmpty").hidden = visible.length > 0;
-  const legend = "S = spelade, V = vunna, F = förlorade, P = poäng.";
-  $("boardNote").textContent =
-    window.FKScore.backend() === "local"
-      ? legend +
-        " Poängen sparas just nu i din egen webbläsare, så topplistan visar dina egna matcher. När sidan kopplas mot en gemensam databas blir listan delad mellan alla besökare."
-      : legend;
+  $("boardEmpty").textContent =
+    period === "month"
+      ? "Inga poäng i " + monthLabel(month).toLowerCase() + " än. Spela en straffsparkstävling så hamnar din förening här."
+      : "Inga poäng registrerade än. Spela en straffsparkstävling så hamnar din förening här.";
+
+  const legend = "S = spelade, V = vunna, F = förlorade, P = poäng (vinst +2, förlust −1, aldrig under 0).";
+  let note = legend;
+  if (window.FKScore.backend() === "local") {
+    note +=
+      " Poängen sparas just nu i din egen webbläsare, så topplistan visar dina egna matcher.";
+  } else {
+    note += " Topplistan är gemensam för alla som spelar på fotbollskarta.se.";
+    const ikö = window.FKScore.pendingCount();
+    if (ikö > 0) {
+      note +=
+        " " +
+        (ikö === 1 ? "1 match väntar" : ikö + " matcher väntar") +
+        " på att skickas till servern och räknas med här tills det gått igenom.";
+    } else if (window.FKScore.isOffline()) {
+      note += " Servern gick inte att nå just nu, så listan kan vara några minuter gammal.";
+    }
+  }
+  $("boardNote").textContent = note;
 }
 
 function fillBoardDistricts() {
@@ -1128,7 +1206,11 @@ function bindEvents() {
     fillBoardDistricts();
     renderBoard();
   };
-  $("boardDistrict").onchange = renderBoard;
+  $("boardDistrict").onchange = () => renderBoard();
+
+  document.querySelectorAll(".board-tab").forEach((b) => {
+    b.onclick = () => setBoardPeriod(b.dataset.period);
+  });
 
   const canvas = $("pitch");
   canvas.addEventListener("click", onCanvasAim);
@@ -1148,8 +1230,8 @@ function bindEvents() {
 
 async function openBoard() {
   fillBoardDistricts();
-  await renderBoard();
   show("screenBoard");
+  await renderBoard(true);
 }
 
 async function init() {
@@ -1168,9 +1250,14 @@ async function init() {
     return;
   }
 
-  const rows = await window.FKScore.leaderboard().catch(() => []);
-  boardTotals = {};
-  rows.forEach((r) => (boardTotals[r.clubId] = r));
+  // Poängen till klubbkorten hämtas i bakgrunden — sidan ska inte vänta på nätet
+  window.FKScore.leaderboard()
+    .then((rows) => {
+      boardTotals = {};
+      rows.forEach((r) => (boardTotals[r.clubId] = r));
+      if ($("screenPick").classList.contains("is-active")) renderClubs();
+    })
+    .catch(() => {});
 
   // Kom ihåg vilken förening besökaren spelade för sist
   try {

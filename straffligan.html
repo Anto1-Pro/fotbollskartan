@@ -4,19 +4,19 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Straffligan – spela straffar för din förening | Fotbollskarta</title>
-<meta name="description" content="Välj din förening, utmana en annan klubb och avgör straffsparkstävlingen i 3D. Varje vinst ger din förening en poäng i Straffligan – se vilken klubb som leder topplistan." />
+<meta name="description" content="Välj din förening, utmana en annan klubb och avgör straffsparkstävlingen i 3D. Varje vinst ger din förening två poäng i Straffligan – se vilken klubb som leder topplistan." />
 <link rel="canonical" href="https://www.fotbollskarta.se/straffligan.html" />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://www.fotbollskarta.se/straffligan.html" />
 <meta property="og:title" content="Straffligan – spela straffar för din förening | Fotbollskarta" />
-<meta property="og:description" content="Välj din förening, utmana en annan klubb och avgör straffsparkstävlingen i 3D. Varje vinst ger din förening en poäng i Straffligan – se vilken klubb som leder topplistan." />
+<meta property="og:description" content="Välj din förening, utmana en annan klubb och avgör straffsparkstävlingen i 3D. Varje vinst ger din förening två poäng i Straffligan – se vilken klubb som leder topplistan." />
 <meta property="og:image" content="https://www.fotbollskarta.se/social-share.jpg" />
 <meta property="og:image:width" content="1731" />
 <meta property="og:image:height" content="909" />
 <meta property="og:locale" content="sv_SE" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Straffligan – spela straffar för din förening | Fotbollskarta" />
-<meta name="twitter:description" content="Välj din förening, utmana en annan klubb och avgör straffsparkstävlingen i 3D. Varje vinst ger din förening en poäng i Straffligan – se vilken klubb som leder topplistan." />
+<meta name="twitter:description" content="Välj din förening, utmana en annan klubb och avgör straffsparkstävlingen i 3D. Varje vinst ger din förening två poäng i Straffligan – se vilken klubb som leder topplistan." />
 <meta name="twitter:image" content="https://www.fotbollskarta.se/social-share.jpg" />
 <link rel="stylesheet" href="landing.css" />
 <link rel="stylesheet" href="straffligan.css" />
@@ -45,7 +45,7 @@
     <div class="container">
       <p class="kicker">Straffligan</p>
       <h1>Spela straffar för din förening</h1>
-      <p>Välj din klubb, utmana en annan förening och avgör det i mål. Fem straffar var – du skjuter fem och står i mål på fem. Varje vinst ger din förening en poäng i topplistan.</p>
+      <p>Välj din klubb, utmana en annan förening och avgör det i mål. Fem straffar var – du skjuter fem och står i mål på fem. Vinst ger din förening +2 poäng i topplistan, förlust kostar 1.</p>
       <div class="cta-row">
         <button class="btn-primary" type="button" id="btnStart">⚽ Välj din förening</button>
         <button class="locate-btn" type="button" id="btnToBoard">🏆 Topplistan</button>
@@ -76,8 +76,9 @@
   <section class="block">
     <div class="container prose">
       <h2>Så räknas poängen</h2>
-      <p>Vinner du straffsparkstävlingen får den förening du spelade för <strong>1 poäng</strong> i Straffligan. Förlorar du får motståndarföreningen poängen i stället. Avbryter du innan avgörandet är klart räknas det som förlust, så motståndaren får poängen – precis som en walkover.</p>
-      <p>Topplistan går att filtrera på land och fotbollsdistrikt, samma indelning som på <a href="karta.html">kartan</a>. Just nu är det de svenska föreningarna som är med i spelet; övriga Norden läggs till efter hand.</p>
+      <p>Vinner du straffsparkstävlingen får den förening du spelade för <strong>+2 poäng</strong> i Straffligan. Förlorar du åker <strong>1 poäng</strong> av den föreningen – men aldrig under noll. Motståndaren får sina två poäng för vinsten. Avbryter du innan avgörandet är klart räknas det som förlust, precis som en walkover.</p>
+      <p>Det betyder att en förening som ligger högt går att jaga ner: möter många spelare klubben i toppen och vinner tappar den poäng för varje förlust.</p>
+      <p>Det finns två topplistor – <strong>alla tider</strong> och <strong>denna månad</strong>. Månadslistan nollas den 1:a varje månad, så det går att hänga på även om man hittar spelet sent. Båda går att filtrera på land och fotbollsdistrikt, samma indelning som på <a href="karta.html">kartan</a>. Just nu är det de svenska föreningarna som är med i spelet; övriga Norden läggs till efter hand.</p>
     </div>
   </section>
 </section>
@@ -235,9 +236,15 @@
       <div>
         <p class="kicker">Straffligan</p>
         <h2>Topplista</h2>
-        <p class="pick-sub">En poäng per vunnen straffsparkstävling. Förlust och avbrott ger poängen till motståndaren.</p>
+        <p class="pick-sub">Vinst +2 poäng, förlust −1 (aldrig under 0). Avbrott räknas som förlust.</p>
       </div>
     </div>
+
+    <div class="board-tabs" role="tablist" aria-label="Period">
+      <button class="board-tab is-on" type="button" role="tab" aria-selected="true" data-period="month" id="tabMonth">Denna månad</button>
+      <button class="board-tab" type="button" role="tab" aria-selected="false" data-period="all" id="tabAll">Alla tider</button>
+    </div>
+    <p class="board-period" id="boardPeriod"></p>
 
     <div class="pick-controls">
       <select id="boardCountry" aria-label="Filtrera på land">
@@ -265,6 +272,7 @@
         <tbody id="boardBody"></tbody>
       </table>
       <p class="board-empty" id="boardEmpty" hidden>Inga poäng registrerade än. Spela en straffsparkstävling så hamnar din förening här.</p>
+      <p class="board-loading" id="boardLoading" hidden>Hämtar topplistan…</p>
     </div>
 
     <p class="board-note" id="boardNote"></p>
