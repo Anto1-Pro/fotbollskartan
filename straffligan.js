@@ -490,8 +490,7 @@ function choose(club) {
       localStorage.setItem("fk_straffliga_club", club.id);
     } catch (e) { /* ignoreras */ }
     // Har klubben inget matchställ valt än får besökaren välja det en gång
-    if (savedKitIndex(club) < 0) openKit(club);
-    else openPicker("opponent");
+    proceedToOpponent();
   } else {
     state.opp = club;
     startMatch();
@@ -501,6 +500,17 @@ function choose(club) {
 /* =====================================================================
    Matchställsväljaren
    ===================================================================== */
+
+/**
+ * Vidare till motståndarvalet — men bara om den egna klubben har ett
+ * matchställ valt. Annars visas färgvalet först. Utan den här grinden
+ * hoppades valet över för en klubb som redan låg sparad sedan tidigare,
+ * och då användes ett förslag ur namnhashen i stället.
+ */
+function proceedToOpponent() {
+  if (state.own && savedKitIndex(state.own) < 0) openKit(state.own);
+  else openPicker("opponent");
+}
 
 function openKit(club) {
   state.kitClub = club;
@@ -577,6 +587,12 @@ function roundNumber(m) {
 }
 
 async function startMatch() {
+  // Skulle en match någonsin startas utan valt matchställ hamnar besökaren
+  // på färgvalet i stället, så spelaren aldrig får en slumpad färg
+  if (savedKitIndex(state.own) < 0) {
+    openKit(state.own);
+    return;
+  }
   state.match = newMatch();
   const m = state.match;
 
@@ -1087,12 +1103,13 @@ function bindEvents() {
   $("btnChangeKit").onclick = () => state.own && openKit(state.own);
   $("btnKitBack").onclick = () => openPicker("own");
   $("btnKitDone").onclick = () => openPicker("opponent");
+  // Säkerhetsnät: startas en match utan valt ställ visas färgvalet först
   $("btnToBoard").onclick = openBoard;
   $("btnResultBoard").onclick = openBoard;
   $("btnBoardBack").onclick = () => show(state.own ? "screenResult" : "screenIntro");
-  $("btnBoardPlay").onclick = () => openPicker(state.own ? "opponent" : "own");
+  $("btnBoardPlay").onclick = () => (state.own ? proceedToOpponent() : openPicker("own"));
   $("btnPickBack").onclick = () => (state.pickMode === "opponent" ? openPicker("own") : show("screenIntro"));
-  $("btnAgain").onclick = () => openPicker("opponent");
+  $("btnAgain").onclick = proceedToOpponent;
   $("btnQuit").onclick = abandonMatch;
 
   let searchTimer = null;
@@ -1161,7 +1178,7 @@ async function init() {
     if (saved && state.byId[saved] && state.byId[saved].country === PLAYABLE_COUNTRY) {
       state.own = state.byId[saved];
       $("btnStart").textContent = "⚽ Spela för " + state.own.name;
-      $("btnStart").onclick = () => openPicker("opponent");
+      $("btnStart").onclick = proceedToOpponent;
       $("btnChangeClub").hidden = false;
       $("btnChangeKit").hidden = false;
     }
@@ -1184,10 +1201,10 @@ async function init() {
       localStorage.setItem("fk_straffliga_club", state.own.id);
     } catch (e) { /* ignoreras */ }
     $("btnStart").textContent = "⚽ Spela för " + state.own.name;
-    $("btnStart").onclick = () => openPicker("opponent");
+    $("btnStart").onclick = proceedToOpponent;
     $("btnChangeClub").hidden = false;
     $("btnChangeKit").hidden = false;
-    openPicker("opponent");
+    proceedToOpponent();
   } else if (params.get("topplista") !== null) {
     openBoard();
   }

@@ -482,11 +482,11 @@ function kitTexture(primary, secondary, number, seed, patternName) {
 
   // Ryggnummer
   g.save();
-  g.font = "bold 132px Impact, 'Arial Black', -apple-system, Helvetica, sans-serif";
+  g.font = "bold 148px Impact, 'Arial Black', -apple-system, Helvetica, sans-serif";
   g.textAlign = "center";
   g.textBaseline = "middle";
-  g.lineWidth = 9;
-  g.strokeStyle = "rgba(0,0,0,0.4)";
+  g.lineWidth = 13;
+  g.strokeStyle = "rgba(0,0,0,0.62)";
   g.strokeText(String(number), W * 0.75, H * 0.44);
   g.fillStyle = "#ffffff";
   g.fillText(String(number), W * 0.75, H * 0.44);
@@ -812,10 +812,15 @@ function buildPlayer(colors, opts) {
     cl.rotation.z = Math.cos(a) * 0.3;
   }
 
+  // Nacken: håret måste täcka bakhuvudet också, annars ser man en kal fläck
+  // rakt bakifrån — och målvakten ses just bakifrån i spelet.
+  const nape = add(head, new THREE.SphereGeometry(0.101, 18, 14), hairMat, 0, 0.055, -0.03);
+  nape.scale.set(0.97, 1.0, 0.72);
+
   // Tinningarna, så hårfästet inte blir en rak linje över pannan
   [-1, 1].forEach((sd) => {
-    const temple = add(head, new THREE.SphereGeometry(0.032, 10, 8), hairMat, sd * 0.072, 0.082, 0.032);
-    temple.scale.set(0.7, 1.1, 0.8);
+    const temple = add(head, new THREE.SphereGeometry(0.034, 10, 8), hairMat, sd * 0.073, 0.072, 0.022);
+    temple.scale.set(0.65, 1.25, 0.85);
   });
 
   // Öron, ögon och bryn
