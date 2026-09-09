@@ -50,6 +50,7 @@
         <button class="btn-primary" type="button" id="btnStart">⚽ Välj din förening</button>
         <button class="locate-btn" type="button" id="btnToBoard">🏆 Topplistan</button>
         <button class="locate-btn" type="button" id="btnChangeClub" hidden>Byt förening</button>
+        <button class="locate-btn" type="button" id="btnChangeKit" hidden>Byt matchställ</button>
       </div>
 
       <div class="rules-grid">
@@ -104,6 +105,31 @@
     <p class="pick-count" id="pickCount"></p>
     <div class="club-grid" id="clubGrid"></div>
     <p class="pick-more" id="pickMore" hidden>Sök vidare för att se fler föreningar.</p>
+  </div>
+</section>
+
+<!-- ===================== MATCHSTÄLL ===================== -->
+<section class="screen" id="screenKit">
+  <div class="pick-wrap container">
+    <div class="pick-head">
+      <button class="btn-ghost" type="button" id="btnKitBack">← Tillbaka</button>
+      <div>
+        <p class="kicker">Matchställ</p>
+        <h2 id="kitTitle">Vilka färger spelar ni i?</h2>
+        <p class="pick-sub">Emblemen kommer från Svenska Fotbollförbundets bildarkiv, och därifrån går det inte att läsa ut föreningens färger. Välj själv hur laget ska se ut på plan — valet sparas för din förening.</p>
+      </div>
+    </div>
+
+    <div class="kit-preview">
+      <img id="kitCrest" alt="" width="64" height="64" />
+      <span id="kitClubName"></span>
+    </div>
+
+    <div class="kit-grid" id="kitGrid"></div>
+
+    <div class="cta-row kit-done">
+      <button class="btn-primary" type="button" id="btnKitDone">Klart – välj motståndare →</button>
+    </div>
   </div>
 </section>
 

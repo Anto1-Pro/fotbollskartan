@@ -299,6 +299,51 @@ function limbGeometry(len, rTop, rMid, rBot, flat, capK) {
   return loft(rows, 14);
 }
 
+/**
+ * Fotbollsskon. Profilen sveps längs y och roteras sedan så att den pekar
+ * framåt i z — häl bakåt, avsmalnande tå framåt.
+ */
+function shoeGeometry(len) {
+  const rows = [];
+  const prof = [
+    [0.0, 0.038, 0.04],
+    [0.1, 0.048, 0.047],
+    [0.28, 0.052, 0.044],
+    [0.5, 0.051, 0.038],
+    [0.72, 0.045, 0.03],
+    [0.88, 0.035, 0.022],
+    [1.0, 0.011, 0.009],
+  ];
+  prof.forEach(([t, rx, rz]) => rows.push({ y: t * len, rx: rx, rz: rz }));
+  const g = loft(rows, 16);
+  g.rotateX(Math.PI / 2); // sveparriktningen blir framåt (+z)
+  return g;
+}
+
+/** Skotextur: mörk sula runt undersidan plus ett par ljusa detaljer. */
+function shoeTexture(primary) {
+  const W = 256;
+  const H = 128;
+  const cv = document.createElement("canvas");
+  cv.width = W;
+  cv.height = H;
+  const g = cv.getContext("2d");
+  const hex = (c) => "#" + c.toString(16).padStart(6, "0");
+  g.fillStyle = hex(primary);
+  g.fillRect(0, 0, W, H);
+  // u ≈ 0,25 hamnar på skons undersida efter rotationen
+  g.fillStyle = "#111417";
+  g.fillRect(W * 0.13, 0, W * 0.24, H);
+  // Ljus rand längs sidan
+  g.fillStyle = "rgba(255,255,255,0.55)";
+  g.fillRect(W * 0.62, H * 0.3, W * 0.05, H * 0.45);
+  g.fillRect(W * 0.7, H * 0.34, W * 0.035, H * 0.38);
+  g.fillRect(W * 0.86, H * 0.3, W * 0.05, H * 0.45);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 /** Bålen, från höft upp till nacken. */
 function torsoGeometry() {
   return loft(
@@ -308,8 +353,8 @@ function torsoGeometry() {
       { y: 0.12, rx: 0.152, rz: 0.110 },
       { y: 0.22, rx: 0.136, rz: 0.100 },
       { y: 0.32, rx: 0.152, rz: 0.113 },
-      { y: 0.42, rx: 0.185, rz: 0.124 },
-      { y: 0.50, rx: 0.178, rz: 0.118 },
+      { y: 0.42, rx: 0.19, rz: 0.126 },
+      { y: 0.50, rx: 0.186, rz: 0.12 },
       { y: 0.545, rx: 0.115, rz: 0.088 },
       { y: 0.565, rx: 0.055, rz: 0.048 },
     ],
@@ -321,38 +366,119 @@ function torsoGeometry() {
 
 const KIT_PATTERNS = ["solid", "stripes", "band", "halves"];
 
+/* ---------------------------------------------------------------------
+   Tyg- och hudtexturer
+   ---------------------------------------------------------------------
+   Alla kroppsdelar sveps med UV där u går runt delen och v längs den.
+   För bålen ligger v = 1 vid nacken, för lemmarna vid infästningen. Det
+   utnyttjas för att baka in kontaktskuggning vid lederna: en mörkare kant
+   där en kroppsdel möter en annan gör att figuren slutar se ut som
+   hopsatta rör, utan att kosta något att rendera.
+   --------------------------------------------------------------------- */
+
+const hexOf = (c) => "#" + c.toString(16).padStart(6, "0");
+
+/** Fint brus, så tyget inte blir spegelblankt. */
+function weave(g, W, H, alpha) {
+  g.save();
+  for (let i = 0; i < W * H * 0.05; i++) {
+    const x = Math.random() * W;
+    const y = Math.random() * H;
+    g.fillStyle = Math.random() > 0.5 ? "rgba(255,255,255," + alpha + ")" : "rgba(0,0,0," + alpha + ")";
+    g.fillRect(x, y, 1.4, 1.4);
+  }
+  g.restore();
+}
+
+/** Mjuka veck längs tyget, som hos ett plagg som hänger på en kropp. */
+function folds(g, W, H, count, strength) {
+  g.save();
+  for (let i = 0; i < count; i++) {
+    const x = ((i + 0.5) / count) * W + (Math.random() - 0.5) * (W / count) * 0.4;
+    const w = (W / count) * (0.35 + Math.random() * 0.4);
+    const grad = g.createLinearGradient(x - w, 0, x + w, 0);
+    grad.addColorStop(0, "rgba(0,0,0,0)");
+    grad.addColorStop(0.4, "rgba(0,0,0," + strength + ")");
+    grad.addColorStop(0.55, "rgba(255,255,255," + strength * 0.5 + ")");
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = grad;
+    g.fillRect(x - w, 0, w * 2, H);
+  }
+  g.restore();
+}
+
+/** Mörkare mot den ena eller båda ändarna — kontaktskugga vid leden. */
+function endShade(g, W, H, topAmount, bottomAmount) {
+  // Breda, mjuka övergångar — en smal gradient läser som en hård ring
+  if (topAmount > 0) {
+    const t = g.createLinearGradient(0, 0, 0, H * 0.36);
+    t.addColorStop(0, "rgba(0,0,0," + topAmount + ")");
+    t.addColorStop(0.45, "rgba(0,0,0," + topAmount * 0.35 + ")");
+    t.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = t;
+    g.fillRect(0, 0, W, H * 0.36);
+  }
+  if (bottomAmount > 0) {
+    const b = g.createLinearGradient(0, H, 0, H * 0.64);
+    b.addColorStop(0, "rgba(0,0,0," + bottomAmount + ")");
+    b.addColorStop(0.45, "rgba(0,0,0," + bottomAmount * 0.35 + ")");
+    b.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = b;
+    g.fillRect(0, H * 0.64, W, H * 0.36);
+  }
+}
+
+/** Formskugga i sidorna: u = 0 och u = 0,5 ligger på kroppens sidor. */
+function sideShade(g, W, H, amount) {
+  const shade = g.createLinearGradient(0, 0, W, 0);
+  shade.addColorStop(0, "rgba(0,0,0," + amount + ")");
+  shade.addColorStop(0.25, "rgba(255,255,255,0.05)");
+  shade.addColorStop(0.5, "rgba(0,0,0," + amount + ")");
+  shade.addColorStop(0.75, "rgba(255,255,255,0.04)");
+  shade.addColorStop(1, "rgba(0,0,0," + amount + ")");
+  g.fillStyle = shade;
+  g.fillRect(0, 0, W, H);
+}
+
+function makeTexture(cv) {
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+
 /**
- * Tröjtextur. u-axeln går runt bålen (u = 0,25 är framsidan, u = 0,75 är
- * ryggen där numret hamnar), v-axeln uppåt.
+ * Tröjtextur. u = 0,25 är framsidan, u = 0,75 ryggen där numret sitter,
+ * u = 0 och 0,5 kroppens sidor. v = 1 (canvas y = 0) är vid nacken.
  */
-function kitTexture(primary, secondary, number, seed) {
+function kitTexture(primary, secondary, number, seed, patternName) {
   const W = 512;
   const H = 256;
   const cv = document.createElement("canvas");
   cv.width = W;
   cv.height = H;
   const g = cv.getContext("2d");
-  const hex = (c) => "#" + c.toString(16).padStart(6, "0");
-  const pattern = KIT_PATTERNS[seed % KIT_PATTERNS.length];
+  const pattern = patternName || KIT_PATTERNS[seed % KIT_PATTERNS.length];
 
-  g.fillStyle = hex(primary);
+  g.fillStyle = hexOf(primary);
   g.fillRect(0, 0, W, H);
 
   if (pattern === "stripes") {
-    g.fillStyle = hex(secondary);
+    g.fillStyle = hexOf(secondary);
     for (let i = 0; i < 10; i++) g.fillRect((i * W) / 10, 0, W / 20, H);
   } else if (pattern === "band") {
-    g.fillStyle = hex(secondary);
+    g.fillStyle = hexOf(secondary);
     g.fillRect(0, H * 0.42, W, H * 0.2);
   } else if (pattern === "halves") {
-    // u = 0–0,5 är kroppens ena sida, 0,5–1 den andra
-    g.fillStyle = hex(secondary);
+    g.fillStyle = hexOf(secondary);
     g.fillRect(W * 0.5, 0, W * 0.5, H);
   }
 
-  // Krage längst upp (v = 1 ligger vid canvas y = 0)
-  g.fillStyle = hex(secondary);
-  g.fillRect(0, 0, W, 16);
+  // Krage: färgad kant med en mörkare linje under
+  g.fillStyle = hexOf(secondary);
+  g.fillRect(0, 0, W, 15);
+  g.fillStyle = "rgba(0,0,0,0.18)";
+  g.fillRect(0, 15, W, 2);
 
   // Ryggnummer
   g.save();
@@ -360,42 +486,159 @@ function kitTexture(primary, secondary, number, seed) {
   g.textAlign = "center";
   g.textBaseline = "middle";
   g.lineWidth = 9;
-  g.strokeStyle = "rgba(0,0,0,0.45)";
+  g.strokeStyle = "rgba(0,0,0,0.4)";
   g.strokeText(String(number), W * 0.75, H * 0.44);
   g.fillStyle = "#ffffff";
   g.fillText(String(number), W * 0.75, H * 0.44);
   g.restore();
 
-  // Lite skuggning i sidorna så bålen får djup
-  const shade = g.createLinearGradient(0, 0, W, 0);
-  shade.addColorStop(0, "rgba(0,0,0,0.28)");
-  shade.addColorStop(0.25, "rgba(255,255,255,0.06)");
-  shade.addColorStop(0.5, "rgba(0,0,0,0.3)");
-  shade.addColorStop(0.75, "rgba(255,255,255,0.04)");
-  shade.addColorStop(1, "rgba(0,0,0,0.28)");
-  g.fillStyle = shade;
-  g.fillRect(0, 0, W, H);
+  folds(g, W, H, 8, 0.075);
+  weave(g, W, H, 0.045);
+  sideShade(g, W, H, 0.2);
+  // Nederkanten stoppas in i shortsen och ligger i skugga
+  endShade(g, W, H, 0, 0.16);
 
-  const tex = new THREE.CanvasTexture(cv);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
+  return makeTexture(cv);
 }
 
-/** Strumptextur med en rand upptill. */
-function sockTexture(primary, secondary) {
+/** Hårtextur: strån och lite variation, så hjässan inte blir en jämn klump. */
+function hairTexture(tone) {
+  const W = 128;
+  const H = 128;
   const cv = document.createElement("canvas");
-  cv.width = 32;
-  cv.height = 128;
+  cv.width = W;
+  cv.height = H;
   const g = cv.getContext("2d");
-  const hex = (c) => "#" + c.toString(16).padStart(6, "0");
-  g.fillStyle = hex(primary);
-  g.fillRect(0, 0, 32, 128);
-  g.fillStyle = hex(secondary);
-  g.fillRect(0, 6, 32, 14);
-  g.fillRect(0, 26, 32, 6);
-  const tex = new THREE.CanvasTexture(cv);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
+  g.fillStyle = hexOf(tone);
+  g.fillRect(0, 0, W, H);
+  g.lineWidth = 1.2;
+  for (let i = 0; i < 460; i++) {
+    const x = Math.random() * W;
+    const y = Math.random() * H;
+    const l = 5 + Math.random() * 12;
+    g.strokeStyle = Math.random() > 0.45 ? "rgba(0,0,0,0.16)" : "rgba(255,255,255,0.11)";
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + (Math.random() - 0.5) * 4, y + l);
+    g.stroke();
+  }
+  // Mörkare i nacken, ljusare på hjässan
+  const grad = g.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, "rgba(255,255,255,0.1)");
+  grad.addColorStop(1, "rgba(0,0,0,0.3)");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, W, H);
+  return makeTexture(cv);
+}
+
+/** Ärmtextur: tröjfärgen med en mjuk kant där ärmen slutar. */
+function sleeveTexture(primary, secondary, striped) {
+  const W = 96;
+  const H = 128;
+  const cv = document.createElement("canvas");
+  cv.width = W;
+  cv.height = H;
+  const g = cv.getContext("2d");
+  g.fillStyle = hexOf(primary);
+  g.fillRect(0, 0, W, H);
+  if (striped) {
+    g.fillStyle = hexOf(secondary);
+    for (let i = 0; i < 10; i++) g.fillRect((i * W) / 10, 0, W / 20, H);
+  }
+  folds(g, W, H, 4, 0.06);
+  weave(g, W, H, 0.045);
+  sideShade(g, W, H, 0.18);
+  endShade(g, W, H, 0.12, 0.05);
+  return makeTexture(cv);
+}
+
+/** Shortstextur: linning upptill, fåll nedtill och en rand i sidan. */
+function shortsTexture(primary, secondary) {
+  const W = 256;
+  const H = 128;
+  const cv = document.createElement("canvas");
+  cv.width = W;
+  cv.height = H;
+  const g = cv.getContext("2d");
+
+  g.fillStyle = hexOf(primary);
+  g.fillRect(0, 0, W, H);
+
+  // Rand längs kroppens sidor
+  g.fillStyle = hexOf(secondary);
+  g.globalAlpha = 0.9;
+  [0, W * 0.5].forEach((x) => {
+    g.fillRect(x - 3.5, 0, 7, H);
+    if (x === 0) g.fillRect(W - 3.5, 0, 3.5, H);
+  });
+  g.globalAlpha = 1;
+
+  // Linning
+  g.fillStyle = hexOf(secondary);
+  g.fillRect(0, 0, W, 8);
+  g.fillStyle = "rgba(0,0,0,0.16)";
+  g.fillRect(0, 8, W, 2);
+  // Fåll
+  g.fillStyle = "rgba(0,0,0,0.12)";
+  g.fillRect(0, H - 5, W, 2);
+
+  folds(g, W, H, 6, 0.07);
+  weave(g, W, H, 0.045);
+  sideShade(g, W, H, 0.13);
+  endShade(g, W, H, 0.14, 0.08);
+
+  return makeTexture(cv);
+}
+
+/** Strumptextur: rand upptill, ribbning och mörkare in mot skon. */
+function sockTexture(primary, secondary) {
+  const W = 64;
+  const H = 128;
+  const cv = document.createElement("canvas");
+  cv.width = W;
+  cv.height = H;
+  const g = cv.getContext("2d");
+
+  g.fillStyle = hexOf(primary);
+  g.fillRect(0, 0, W, H);
+  g.fillStyle = hexOf(secondary);
+  g.fillRect(0, 10, W, 9);
+  g.fillRect(0, 23, W, 4);
+
+  // Ribbning: fina lodräta linjer
+  g.strokeStyle = "rgba(0,0,0,0.13)";
+  g.lineWidth = 1;
+  for (let x = 2; x < W; x += 4) {
+    g.beginPath();
+    g.moveTo(x, 0);
+    g.lineTo(x, H);
+    g.stroke();
+  }
+
+  weave(g, W, H, 0.045);
+  sideShade(g, W, H, 0.16);
+  endShade(g, W, H, 0.15, 0.13);
+
+  return makeTexture(cv);
+}
+
+/**
+ * Hudtextur för lemmarna: mörkare vid båda ändarna, så varje arm och ben
+ * får en kontaktskugga in mot leden.
+ */
+function skinLimbTexture(tone) {
+  const W = 64;
+  const H = 128;
+  const cv = document.createElement("canvas");
+  cv.width = W;
+  cv.height = H;
+  const g = cv.getContext("2d");
+  g.fillStyle = hexOf(tone);
+  g.fillRect(0, 0, W, H);
+  weave(g, W, H, 0.03);
+  sideShade(g, W, H, 0.17);
+  endShade(g, W, H, 0.17, 0.1);
+  return makeTexture(cv);
 }
 
 // Spelet utgår från de svenska klubbarna, så utseendet är nordiskt viktat:
@@ -430,18 +673,32 @@ function buildPlayer(colors, opts) {
   const mat = (extra) =>
     new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.66, metalness: 0.02 }, extra));
 
-  const skinMat = mat({ color: SKIN_TONES[seed % SKIN_TONES.length], roughness: 0.72 });
-  const hairMat = mat({ color: HAIR_TONES[(seed >> 3) % HAIR_TONES.length], roughness: 0.88 });
-  const shirtMat = mat({ map: kitTexture(colors.shirt, colors.shorts, number, seed), roughness: 0.7 });
-  const sleeveMat = mat({ color: colors.shirt, roughness: 0.7 });
-  const cuffMat = mat({ color: colors.shorts, roughness: 0.7 });
-  const shortsMat = mat({ color: colors.shorts, roughness: 0.7 });
-  const sockTex = sockTexture(colors.socks, colors.shorts);
-  const sockMat = mat({ map: sockTex, roughness: 0.75 });
-  const bootMat = mat({ color: BOOT_TONES[(seed >> 5) % BOOT_TONES.length], roughness: 0.35, metalness: 0.15 });
-  const soleMat = mat({ color: 0x101314, roughness: 0.5 });
+  const second = colors.second == null ? colors.shorts : colors.second;
+  const skinTone = SKIN_TONES[seed % SKIN_TONES.length];
+  // Sfärer (huvud, näsa, leder) tar den släta huden, lemmarna den med
+  // inbakad kontaktskugga vid ändarna
+  const skinMat = mat({ color: skinTone, roughness: 0.74 });
+  const limbMat = mat({ map: skinLimbTexture(skinTone), roughness: 0.74 });
+  const hairMat = mat({ map: hairTexture(HAIR_TONES[(seed >> 3) % HAIR_TONES.length]), roughness: 0.92 });
+  const shirtMat = mat({
+    map: kitTexture(colors.shirt, second, number, seed, colors.pattern),
+    roughness: 0.72,
+  });
+  const sleeveMat = mat({
+    map: sleeveTexture(colors.shirt, second, colors.pattern === "stripes"),
+    roughness: 0.72,
+  });
+  const cuffMat = mat({ color: second, roughness: 0.72 });
+  const shortsMat = mat({ map: shortsTexture(colors.shorts, second), roughness: 0.72 });
+  const sockMat = mat({ map: sockTexture(colors.socks, second), roughness: 0.78 });
+  const bootMat = mat({
+    map: shoeTexture(BOOT_TONES[(seed >> 5) % BOOT_TONES.length]),
+    roughness: 0.34,
+    metalness: 0.14,
+  });
   const gloveMat = mat({ color: colors.gloves || 0xf4f4f4, roughness: 0.55 });
   const eyeMat = mat({ color: 0x1b1512, roughness: 0.3 });
+  const scleraMat = mat({ color: 0xf0ece4, roughness: 0.35 });
 
   const add = (parent, geo, material, x, y, z) => {
     const m = new THREE.Mesh(geo, material);
@@ -460,16 +717,17 @@ function buildPlayer(colors, opts) {
   hips.add(spine);
   add(spine, torsoGeometry(), shirtMat, 0, 0, 0);
 
-  // Shorts sitter över höften och över bålens nedre del
+  // Shorts sitter över höften och över bålens nedre del. Profilen byggs i
+  // växande y, annars vänds ytan inåt och plagget blir mörkt.
   add(
     spine,
     loft(
       [
-        { y: 0.16, rx: 0.152, rz: 0.112 },
-        { y: 0.08, rx: 0.168, rz: 0.122 },
-        { y: -0.02, rx: 0.172, rz: 0.126 },
-        { y: -0.11, rx: 0.166, rz: 0.122 },
-        { y: -0.14, rx: 0.15, rz: 0.11 },
+        { y: -0.085, rx: 0.152, rz: 0.112 },
+        { y: -0.04, rx: 0.168, rz: 0.124 },
+        { y: 0.02, rx: 0.172, rz: 0.126 },
+        { y: 0.09, rx: 0.166, rz: 0.121 },
+        { y: 0.16, rx: 0.149, rz: 0.11 },
       ],
       16
     ),
@@ -484,10 +742,12 @@ function buildPlayer(colors, opts) {
   spine.add(chest);
 
   /* --- Nacke och huvud --- */
-  add(chest, limbGeometry(0.12, 0.058, 0.056, 0.056, 0.9, 0.05), skinMat, 0, 0.12, 0);
+  const traps = add(chest, new THREE.SphereGeometry(0.1, 16, 12), shirtMat, 0, 0.03, 0);
+  traps.scale.set(1.5, 0.55, 0.85);
+  add(chest, limbGeometry(0.12, 0.058, 0.057, 0.056, 0.9, 0.05), limbMat, 0, 0.12, 0);
 
   const head = new THREE.Group();
-  head.position.y = 0.115;
+  head.position.y = 0.152;
   chest.add(head);
 
   const skull = add(head, new THREE.SphereGeometry(0.1, 22, 18), skinMat, 0, 0.075, 0.005);
@@ -501,20 +761,20 @@ function buildPlayer(colors, opts) {
   if (style === 0) {
     const h = add(
       head,
-      new THREE.SphereGeometry(0.104, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.62),
+      new THREE.SphereGeometry(0.104, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.52),
       hairMat,
       0,
-      0.078,
+      0.082,
       0.002
     );
     h.scale.set(0.93, 1.12, 1.02);
   } else if (style === 1) {
     const h = add(
       head,
-      new THREE.SphereGeometry(0.108, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.78),
+      new THREE.SphereGeometry(0.108, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.66),
       hairMat,
       0,
-      0.072,
+      0.078,
       -0.008
     );
     h.scale.set(0.95, 1.05, 1.06);
@@ -523,48 +783,97 @@ function buildPlayer(colors, opts) {
     h.scale.set(0.9, 0.78, 0.95);
   }
 
-  // Öron och ögon
+  // Pannben och kindben, så ansiktet får relief
+  const brow = add(head, new THREE.SphereGeometry(0.05, 14, 10), skinMat, 0, 0.083, 0.05);
+  brow.scale.set(1.55, 0.42, 0.72);
+  [-1, 1].forEach((sd) => {
+    const cheek = add(head, new THREE.SphereGeometry(0.026, 12, 10), skinMat, sd * 0.05, 0.036, 0.055);
+    cheek.scale.set(1, 0.75, 0.7);
+  });
+
+  // Näsa
+  const nose = add(head, new THREE.SphereGeometry(0.016, 12, 10), skinMat, 0, 0.05, 0.094);
+  nose.scale.set(0.8, 1.3, 1.55);
+
+  // Ett par testar bryter av den släta hjässan
+  const clumps = 3 + (seed % 3);
+  for (let i = 0; i < clumps; i++) {
+    const a = (i / clumps) * Math.PI * 2 + (seed % 7) * 0.3;
+    const r = 0.042 + ((seed >> (i + 1)) % 4) * 0.005;
+    const cl = add(
+      head,
+      new THREE.SphereGeometry(r, 10, 8),
+      hairMat,
+      Math.cos(a) * 0.048,
+      0.108 + Math.sin(i * 1.7) * 0.008,
+      Math.sin(a) * 0.04 - 0.014
+    );
+    cl.scale.set(1, 0.52, 1);
+    cl.rotation.z = Math.cos(a) * 0.3;
+  }
+
+  // Tinningarna, så hårfästet inte blir en rak linje över pannan
+  [-1, 1].forEach((sd) => {
+    const temple = add(head, new THREE.SphereGeometry(0.032, 10, 8), hairMat, sd * 0.072, 0.082, 0.032);
+    temple.scale.set(0.7, 1.1, 0.8);
+  });
+
+  // Öron, ögon och bryn
   [-1, 1].forEach((s) => {
-    const ear = add(head, new THREE.SphereGeometry(0.022, 10, 8), skinMat, s * 0.086, 0.055, -0.004);
-    ear.scale.set(0.55, 1, 0.8);
-    const eye = add(head, new THREE.SphereGeometry(0.0135, 10, 8), eyeMat, s * 0.036, 0.062, 0.084);
-    eye.scale.set(1, 0.85, 0.6);
+    const ear = add(head, new THREE.SphereGeometry(0.022, 10, 8), skinMat, s * 0.086, 0.052, -0.006);
+    ear.scale.set(0.5, 1.05, 0.85);
+
+    const sclera = add(head, new THREE.SphereGeometry(0.016, 10, 8), scleraMat, s * 0.037, 0.064, 0.079);
+    sclera.scale.set(1.05, 0.7, 0.5);
+    const pupil = add(head, new THREE.SphereGeometry(0.008, 8, 6), eyeMat, s * 0.038, 0.063, 0.088);
+    pupil.scale.set(1, 1, 0.5);
+
+    const brow = add(head, new THREE.BoxGeometry(0.032, 0.008, 0.012), hairMat, s * 0.037, 0.083, 0.086);
+    brow.rotation.z = -s * 0.12;
   });
 
   /* --- Armar --- */
   const arms = {};
   [["left", -1], ["right", 1]].forEach(([side, s]) => {
     const shoulder = new THREE.Group();
-    shoulder.position.set(s * 0.175, 0.0, 0);
+    shoulder.position.set(s * 0.166, -0.005, 0);
     chest.add(shoulder);
 
     // Axelkappa i tröjfärg täcker leden
-    const capMesh = add(shoulder, new THREE.SphereGeometry(0.068, 16, 12), sleeveMat, 0, 0.008, 0);
-    capMesh.scale.set(1.06, 0.9, 0.98);
+    const capMesh = add(shoulder, new THREE.SphereGeometry(0.062, 16, 12), sleeveMat, 0, 0.014, 0);
+    capMesh.scale.set(1.05, 1.2, 0.98);
 
     // Överarm: ärm ner till halva, sedan hud (målvakten har lång ärm)
     const sleeveLen = keeper ? 0.31 : 0.17;
     add(shoulder, limbGeometry(sleeveLen, 0.07, 0.066, 0.062, 0.9, 0.05), sleeveMat, 0, 0, 0);
     // Målvakten har manschett i andrafärgen längst ut på den långa ärmen
     if (keeper) add(shoulder, limbGeometry(0.04, 0.066, 0.066, 0.064, 0.9, 0.02), cuffMat, 0, -sleeveLen + 0.035, 0);
-    if (!keeper) add(shoulder, limbGeometry(0.3, 0.058, 0.054, 0.05), skinMat, 0, -0.14, 0);
+    if (!keeper) add(shoulder, limbGeometry(0.3, 0.058, 0.055, 0.05), limbMat, 0, -0.14, 0);
 
     const elbow = new THREE.Group();
     elbow.position.y = -0.3;
     shoulder.add(elbow);
-    add(elbow, limbGeometry(0.27, 0.053, 0.046, 0.038), skinMat, 0, 0, 0);
+    const elbowCap = add(elbow, new THREE.SphereGeometry(0.052, 12, 10), skinMat, 0, 0.004, 0);
+    elbowCap.scale.set(1, 0.95, 1);
+    add(elbow, limbGeometry(0.27, 0.053, 0.047, 0.038), limbMat, 0, 0, 0);
 
     const wrist = new THREE.Group();
     wrist.position.y = -0.27;
     elbow.add(wrist);
     if (keeper) {
-      // Handske med manschett
-      add(wrist, limbGeometry(0.05, 0.048, 0.05, 0.05), gloveMat, 0, 0.01, 0);
-      const glove = add(wrist, limbGeometry(0.17, 0.05, 0.062, 0.03, 0.55), gloveMat, 0, -0.03, 0);
-      glove.scale.set(1.15, 1, 1);
+      // Handske: manschett plus en rundad, vantliknande hand
+      add(wrist, limbGeometry(0.055, 0.05, 0.052, 0.052, 0.85, 0.04), gloveMat, 0, 0.012, 0);
+      const glove = add(wrist, limbGeometry(0.155, 0.052, 0.07, 0.052, 0.6), gloveMat, 0, -0.035, 0.004);
+      glove.scale.set(1.2, 1, 1);
+      const fingers = add(wrist, new THREE.SphereGeometry(0.048, 14, 10), gloveMat, 0, -0.175, 0.004);
+      fingers.scale.set(1.35, 0.85, 0.62);
     } else {
-      const hand = add(wrist, limbGeometry(0.14, 0.038, 0.045, 0.022, 0.6), skinMat, 0, 0, 0);
-      hand.scale.set(1.1, 1, 1);
+      const palm = add(wrist, limbGeometry(0.145, 0.043, 0.05, 0.027, 0.55), limbMat, 0, 0, 0);
+      palm.scale.set(1.15, 1, 1);
+      // Tumme, så handen får en igenkännbar silhuett
+      const thumb = add(wrist, limbGeometry(0.06, 0.021, 0.02, 0.015), limbMat, s * 0.035, -0.032, 0.014);
+      thumb.rotation.z = -s * 0.85;
+      thumb.rotation.x = -0.3;
     }
     arms[side] = { shoulder, elbow, wrist };
   });
@@ -575,25 +884,28 @@ function buildPlayer(colors, opts) {
     const hip = new THREE.Group();
     hip.position.set(s * 0.088, -0.05, 0);
     hips.add(hip);
-    add(hip, limbGeometry(0.44, 0.108, 0.094, 0.072), skinMat, 0, 0, 0);
+    // Låret: kraftigast en bit ner, avsmalnande mot knäet
+    add(hip, limbGeometry(0.44, 0.106, 0.098, 0.073), limbMat, 0, 0, 0);
     // Shortsben en bit ner på låret
-    add(hip, limbGeometry(0.21, 0.122, 0.118, 0.108, 0.9, 0.03), shortsMat, 0, 0.015, 0);
+    add(hip, limbGeometry(0.29, 0.118, 0.124, 0.132, 0.92, 0.05), shortsMat, 0, 0.055, 0);
 
     const knee = new THREE.Group();
     knee.position.y = -0.44;
     hip.add(knee);
-    add(knee, limbGeometry(0.4, 0.072, 0.062, 0.04), skinMat, 0, 0, 0);
+    const kneeCap = add(knee, new THREE.SphereGeometry(0.068, 14, 12), skinMat, 0, 0.005, 0.006);
+    kneeCap.scale.set(1, 0.92, 1.02);
+    // Vaden buktar ut strax under knäet och smalnar av mot fotleden
+    add(knee, limbGeometry(0.4, 0.07, 0.068, 0.036), limbMat, 0, 0, 0);
     // Strumpa från strax under knäet och ner i skon
     add(knee, limbGeometry(0.36, 0.086, 0.075, 0.055, 0.92, 0.03), sockMat, 0, 0.02, 0);
 
     const ankle = new THREE.Group();
     ankle.position.y = -0.4;
     knee.add(ankle);
-    const boot = add(ankle, new THREE.BoxGeometry(0.098, 0.062, 0.245), bootMat, 0, -0.028, 0.055);
-    boot.geometry.translate(0, 0, 0);
-    const heel = add(ankle, new THREE.SphereGeometry(0.05, 12, 10), bootMat, 0, -0.014, -0.028);
-    heel.scale.set(0.95, 0.8, 1);
-    add(ankle, new THREE.BoxGeometry(0.104, 0.016, 0.26), soleMat, 0, -0.06, 0.05);
+    // Fotleden och skon
+    const heel = add(ankle, new THREE.SphereGeometry(0.042, 14, 10), bootMat, 0, -0.022, -0.028);
+    heel.scale.set(1, 1.05, 1.1);
+    add(ankle, shoeGeometry(0.255), bootMat, 0, -0.042, -0.055);
 
     legs[side] = { hip, knee, ankle };
   });
@@ -627,16 +939,21 @@ function poseReset(p) {
 function poseIdle(p, t) {
   const b = Math.sin(t * 1.6);
   poseReset(p);
-  p.hips.position.y = HIP_Y + b * 0.006;
-  p.spine.rotation.x = 0.05;
-  p.arms.left.shoulder.rotation.set(0.04, 0, -0.11);
-  p.arms.right.shoulder.rotation.set(0.04, 0, 0.11);
-  p.arms.left.elbow.rotation.x = -0.28 - b * 0.03;
-  p.arms.right.elbow.rotation.x = -0.28 + b * 0.03;
-  p.legs.left.hip.rotation.z = -0.05;
-  p.legs.right.hip.rotation.z = 0.05;
-  p.legs.left.knee.rotation.x = 0.06;
-  p.legs.right.knee.rotation.x = 0.06;
+  // Tyngden på ena benet och en aning osymmetriskt — helt spegelvänt ser
+  // ut som en skyltdocka
+  p.hips.position.y = HIP_Y - 0.012 + b * 0.006;
+  p.hips.rotation.z = 0.035;
+  p.spine.rotation.set(0.06, 0.05, -0.03);
+  p.head.rotation.set(-0.02, -0.07, 0);
+  p.arms.left.shoulder.rotation.set(0.06, 0, -0.13);
+  p.arms.right.shoulder.rotation.set(0.02, 0, 0.1);
+  p.arms.left.elbow.rotation.set(-0.34 - b * 0.03, 0, 0.1);
+  p.arms.right.elbow.rotation.set(-0.22 + b * 0.03, 0, -0.08);
+  p.legs.left.hip.rotation.set(-0.03, 0, -0.04);
+  p.legs.right.hip.rotation.set(0.06, 0, 0.09);
+  p.legs.left.knee.rotation.x = 0.04;
+  p.legs.right.knee.rotation.x = 0.14;
+  p.legs.right.ankle.rotation.x = -0.06;
 }
 
 /** Löpsteg. phase räknas i hela steg, speed 0–1 skalar utslaget. */
@@ -734,6 +1051,22 @@ function poseKeeperSet(p, t) {
   p.head.rotation.x = -0.1;
 }
 
+/**
+ * Vrider huvudet mot en punkt i världen, med begränsat utslag så nacken
+ * inte vrids orimligt. Ger liv: spelarna följer bollen med blicken.
+ */
+function lookHeadAt(p, targetWorld, weight) {
+  const head = p.head;
+  head.updateWorldMatrix(true, false);
+  _v.copy(targetWorld);
+  head.parent.worldToLocal(_v);
+  _v.sub(head.position);
+  const yaw = clamp(Math.atan2(_v.x, _v.z), -1.1, 1.1);
+  const pitch = clamp(-Math.atan2(_v.y, Math.hypot(_v.x, _v.z)), -0.6, 0.6);
+  head.rotation.y += (yaw - head.rotation.y) * weight;
+  head.rotation.x += (pitch - head.rotation.x) * weight;
+}
+
 /** Vrider en arm så att handen pekar mot en punkt i världen. */
 const _v = new THREE.Vector3();
 const _q = new THREE.Quaternion();
@@ -752,6 +1085,52 @@ function reachArm(arm, targetWorld, blend) {
   arm.elbow.rotation.x *= 1 - blend;
 }
 
+/** Målgest: armarna upp i ett V, hopp och knytnävsslag. */
+function poseCelebrate(p, t) {
+  poseReset(p);
+  const raise = Math.min(1, t / 0.32);
+  const jump = t < 0.6 ? Math.sin((t / 0.6) * Math.PI) : 0;
+  const pump = t > 0.75 ? Math.max(0, Math.sin((t - 0.75) * 7.5)) : 0;
+
+  p.root.position.y = jump * 0.4;
+  p.hips.position.y = HIP_Y - 0.08 * (1 - raise);
+  p.spine.rotation.set(-0.24 * raise, Math.sin(t * 2.2) * 0.08, 0);
+  p.head.rotation.set(-0.32 * raise, Math.sin(t * 2.2) * 0.12, 0);
+
+  p.arms.left.shoulder.rotation.set(-0.25, 0, -2.5 * raise + 0.35 * pump);
+  p.arms.right.shoulder.rotation.set(-0.25, 0, 2.5 * raise - 0.35 * pump);
+  p.arms.left.elbow.rotation.x = -(0.18 + 1.15 * pump);
+  p.arms.right.elbow.rotation.x = -(0.18 + 1.15 * pump);
+
+  p.legs.left.hip.rotation.set(-0.55 * jump, 0, -0.06);
+  p.legs.right.hip.rotation.set(0.32 * jump, 0, 0.06);
+  p.legs.left.knee.rotation.x = 0.12 + 1.05 * jump;
+  p.legs.right.knee.rotation.x = 0.12 + 0.3 * jump;
+  p.legs.left.ankle.rotation.x = 0.35 * jump;
+  p.legs.right.ankle.rotation.x = 0.35 * jump;
+}
+
+/** Förlustgest: händerna upp mot ansiktet, huvudet ner. */
+function poseDejected(p, t) {
+  poseReset(p);
+  const e = Math.min(1, t / 0.85);
+  const sway = Math.sin(t * 1.5) * 0.05;
+
+  p.hips.position.y = HIP_Y - 0.07 * e;
+  p.spine.rotation.set(0.32 * e, sway, 0);
+  p.head.rotation.set(0.48 * e, sway * 2, 0);
+
+  p.arms.left.shoulder.rotation.set(-1.2 * e, 0, -0.6 * e);
+  p.arms.right.shoulder.rotation.set(-1.2 * e, 0, 0.6 * e);
+  p.arms.left.elbow.rotation.set(-2.2 * e, 0, 0.3 * e);
+  p.arms.right.elbow.rotation.set(-2.2 * e, 0, -0.3 * e);
+
+  p.legs.left.hip.rotation.set(0.06, 0, -0.09);
+  p.legs.right.hip.rotation.set(0.06, 0, 0.09);
+  p.legs.left.knee.rotation.x = 0.14 + 0.12 * e;
+  p.legs.right.knee.rotation.x = 0.14 + 0.12 * e;
+}
+
 /**
  * Målvaktens dyk. e = 0–1, dirX = -1/1 (världens x-riktning), high = högt
  * hörn, ballWorld = bollens position att sträcka sig mot (får vara null),
@@ -763,10 +1142,16 @@ function poseDive(p, e, dirX, high, ballWorld, lateral) {
   // Avstamp: kroppen kastar sig i sidled och roterar mot horisontalläge
   p.root.position.x = (lateral || 0) * s;
   p.root.position.z = 0.22 - 0.18 * s;
+  // Kroppen roteras kring rotpunkten, som ligger i marknivå. Ju mer liggande
+  // kroppen blir, desto mer måste roten lyftas — annars hamnar halva spelaren
+  // under gräset. 0,2 m är ungefär kroppens halva tjocklek.
+  const lie = Math.sin(Math.min(1, s) * (Math.PI / 2));
+  const air = Math.sin(Math.min(1, s) * Math.PI * 0.78);
+  p.root.position.y = (high ? 0.6 : 0.26) * air + 0.2 * lie;
   p.root.rotation.z = -dirX * (high ? 1.0 : 1.34) * s;
   p.root.rotation.y = -dirX * 0.3 * s;
   p.root.rotation.x = (high ? -0.12 : 0.16) * s;
-  p.hips.position.y = HIP_Y - 0.13 + (high ? 0.62 : -0.26) * s;
+  p.hips.position.y = HIP_Y - 0.13 + (high ? 0.16 : 0.02) * s;
   p.spine.rotation.set((high ? -0.34 : 0.26) * s, -dirX * 0.18 * s, 0);
   p.head.rotation.set(-0.1 - 0.15 * s, dirX * 0.2 * s, 0);
 
@@ -797,8 +1182,12 @@ function poseDive(p, e, dirX, high, ballWorld, lateral) {
  */
 function poseCenterSave(p, e, high, ballWorld) {
   const s = 1 - Math.pow(1 - e, 2);
+  p.root.position.x = 0;
+  p.root.position.z = 0.22 - 0.1 * s;
+  p.root.rotation.set(0, 0, 0);
+  p.root.position.y = high ? 0.45 * Math.sin(Math.min(1, s) * Math.PI * 0.8) : 0;
   if (high) {
-    p.hips.position.y = HIP_Y - 0.13 + 0.5 * s;
+    p.hips.position.y = HIP_Y - 0.13 + 0.06 * s;
     p.spine.rotation.set(-0.2 * s, 0, 0);
     p.arms.left.shoulder.rotation.set(-0.55 - 2.1 * s, 0, -0.95 + 0.65 * s);
     p.arms.right.shoulder.rotation.set(-0.55 - 2.1 * s, 0, 0.95 - 0.65 * s);
@@ -902,6 +1291,7 @@ export class PenaltyScene {
     key.shadow.camera.bottom = -14;
     key.shadow.bias = -0.0009;
     key.shadow.normalBias = 0.02;
+    key.shadow.radius = 3.5; // mjukare skuggkant
     this.scene.add(key);
     this.scene.add(key.target);
     key.target.position.set(0, 0, 6);
@@ -913,6 +1303,11 @@ export class PenaltyScene {
     const rim = new THREE.DirectionalLight(0xdce8ff, 0.8);
     rim.position.set(4, 14, -24);
     this.scene.add(rim);
+
+    // Svagt ljus rakt framifrån, så ansikten och nummer inte hamnar i mörker
+    const face = new THREE.DirectionalLight(0xe8f0ff, 0.32);
+    face.position.set(-2, 6, 26);
+    this.scene.add(face);
 
     // Flodljusmaster i hörnen
     this.pylons = [];
@@ -1380,6 +1775,7 @@ export class PenaltyScene {
 
   setPhase(phase, immediate) {
     this.phase = phase;
+    this._phaseAt = performance.now();
     if (phase === "shoot") {
       // Bakom skytten, som på tv:ns straffkamera
       this._camGoal.pos.set(0.4, 2.1, SPOT_Z + 9);
@@ -1392,6 +1788,11 @@ export class PenaltyScene {
       this._camGoal.pos.set(0, 1.3, -5.6);
       this._camGoal.target.set(0, 1.3, 12);
       this.camera.fov = 48;
+    } else if (phase === "ending") {
+      // Nära, låg vinkel framifrån — gesten ska fylla bilden
+      this._camGoal.pos.set(1.15, 1.14, SPOT_Z + 2.75);
+      this._camGoal.target.set(0, 1.28, SPOT_Z - 0.6);
+      this.camera.fov = 40;
     } else {
       this._camGoal.pos.set(9.5, 3.1, 11.5);
       this._camGoal.target.set(0, 1.2, 1);
@@ -1415,6 +1816,23 @@ export class PenaltyScene {
     const a = new THREE.Vector3(3, 1.2, 0).project(this.camera);
     const b = new THREE.Vector3(-3, 1.2, 0).project(this.camera);
     return a.x >= b.x ? 1 : -1;
+  }
+
+  /**
+   * Har kameran hunnit fram till sitt nya läge? Siktet räknas ut genom att
+   * skjuta en stråle från kameran, så ett tryck under själva kamerabytet
+   * skulle peka någon helt annanstans.
+   */
+  cameraSettled() {
+    // Efter 0,7 s släpper vi igenom oavsett, så att ett tryck aldrig kan
+    // bli helt låst om kameran av någon anledning inte hinner ända fram.
+    if (performance.now() - (this._phaseAt || 0) > 700) return true;
+    return this._cam.pos.distanceTo(this._camGoal.pos) < 0.5;
+  }
+
+  /** Avstånd kvar till kamerans målläge — används vid felsökning. */
+  cameraGap() {
+    return this._cam.pos.distanceTo(this._camGoal.pos);
   }
 
   showAim(visible) {
@@ -1564,6 +1982,7 @@ export class PenaltyScene {
             poseRun(s, p * 2.7, clamp(1.15 - p * 0.55, 0.45, 1));
             if (p > 0.66) poseBackswing(s, (p - 0.66) / 0.34);
             poseKeeperSet(k, t);
+            lookHeadAt(k, self.ball.position, 0.35);
             return;
           }
 
@@ -1580,6 +1999,8 @@ export class PenaltyScene {
             // Sparkbenet går genom bollen och följer igenom
             poseKick(s, clamp(ft * 2.8, 0, 1));
             s.root.position.z = SPOT_Z + 0.34 - Math.min(0.4, ft * 0.55);
+            // Båda följer bollen med blicken
+            lookHeadAt(s, self.ball.position, 0.35);
 
             const dp = clamp((t - runUp - 0.02) / dive, 0, 1);
             if (dp > 0) {
@@ -1588,8 +2009,10 @@ export class PenaltyScene {
               const target = o.outcome === "save" ? self.ball.position : diveTo;
               if (centreDive) poseCenterSave(k, dp, diveHigh, target);
               else poseDive(k, dp, diveDirX, diveHigh, target, diveLateral);
+              lookHeadAt(k, self.ball.position, 0.4);
             } else {
               poseKeeperSet(k, t);
+              lookHeadAt(k, self.ball.position, 0.5);
             }
             return;
           }
@@ -1645,8 +2068,9 @@ export class PenaltyScene {
           else poseDive(k, 1, diveDirX, diveHigh, null, diveLateral);
           const land = clamp((st - 0.15) / 0.5, 0, 1);
           if (land > 0) {
-            k.hips.position.y = lerp(k.hips.position.y, centreDive ? 0.4 : 0.26, land);
+            k.root.position.y = lerp(k.root.position.y, centreDive ? 0.05 : 0.2, land);
             if (!centreDive) k.root.rotation.z = lerp(k.root.rotation.z, -diveDirX * 1.5, land);
+            if (centreDive) k.hips.position.y = lerp(k.hips.position.y, HIP_Y - 0.45, land);
             k.legs.left.knee.rotation.x = lerp(k.legs.left.knee.rotation.x, 0.45, land);
             k.legs.right.knee.rotation.x = lerp(k.legs.right.knee.rotation.x, 0.6, land);
             k.arms.left.elbow.rotation.x = lerp(k.arms.left.elbow.rotation.x, -0.5, land);
@@ -1654,6 +2078,39 @@ export class PenaltyScene {
           }
 
           if (t >= total) {
+            self._anim = null;
+            resolve();
+          }
+        },
+      };
+    });
+  }
+
+  /**
+   * Spelar upp slutgesten framför kameran: målgest vid vinst, förlustgest
+   * annars. Spelaren bär den egna klubbens färger.
+   */
+  playEnding(won) {
+    const self = this;
+    const total = 3.1;
+    this.showAim(false);
+    const s = this.shooter;
+    s.root.visible = true;
+    return new Promise((resolve) => {
+      self._anim = {
+        t: 0,
+        t0: null,
+        total: total,
+        resolve: resolve,
+        update() {
+          if (this.t0 === null) this.t0 = performance.now();
+          this.t = (performance.now() - this.t0) / 1000;
+          if (won) poseCelebrate(s, this.t);
+          else poseDejected(s, this.t);
+          // Poserna nollställer roten, så placeringen sätts efter dem
+          s.root.position.z += SPOT_Z - 0.6;
+          s.root.rotation.y = 0.28;
+          if (this.t >= total) {
             self._anim = null;
             resolve();
           }

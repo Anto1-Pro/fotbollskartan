@@ -80,39 +80,150 @@ function hslToHex(h, s, l) {
 }
 
 /* =====================================================================
-   Emblem: riktiga när de finns, annars en genererad sköld
+   Matchställ och emblem
+   ---------------------------------------------------------------------
+   Klubbens riktiga färger går INTE att läsa ur emblemet: bildservern
+   (staticcdn.svenskfotboll.se) skickar inga CORS-huvuden, så en canvas som
+   ritat emblemet blir "tainted" och pixlarna kan inte läsas av. Verifierat i
+   riktig webbläsare — bilden laddar utan crossOrigin men inte med.
+   Emblemet visas därför som det är, medan lagfärgerna kommer ur en lista av
+   riktiga matchställ. Besökaren ställer in sin egen klubbs ställ en gång, och
+   valet sparas per förening.
    ===================================================================== */
 
-/** Färger ur klubbnamnet — används när emblemet inte kan läsas av. */
-function fallbackColors(club) {
-  const h = hashOf(club.name || club.id);
-  const hue = h % 360;
-  const alt = (hue + 150 + (h % 60)) % 360;
+const KITS = [
+  { label: "Blå / vit", shirt: 0x1b4f9c, second: 0xffffff, shorts: 0xf4f4f4, socks: 0x1b4f9c, pattern: "solid" },
+  { label: "Blåvit randig", shirt: 0x1b4f9c, second: 0xffffff, shorts: 0xf4f4f4, socks: 0x1b4f9c, pattern: "stripes" },
+  { label: "Blå / svart", shirt: 0x163d85, second: 0x121417, shorts: 0x121417, socks: 0x163d85, pattern: "solid" },
+  { label: "Marinblå / röd", shirt: 0x172a4d, second: 0xc8102e, shorts: 0x172a4d, socks: 0x172a4d, pattern: "solid" },
+  { label: "Ljusblå / marin", shirt: 0x5fa5dd, second: 0x12294c, shorts: 0x12294c, socks: 0x5fa5dd, pattern: "solid" },
+  { label: "Röd / vit", shirt: 0xc8102e, second: 0xffffff, shorts: 0xf4f4f4, socks: 0xc8102e, pattern: "solid" },
+  { label: "Rödvit randig", shirt: 0xc8102e, second: 0xffffff, shorts: 0x121417, socks: 0xc8102e, pattern: "stripes" },
+  { label: "Röd / svart", shirt: 0xc21b2b, second: 0x141618, shorts: 0x141618, socks: 0xc21b2b, pattern: "solid" },
+  { label: "Vinröd / grädde", shirt: 0x7c1526, second: 0xf0e6d2, shorts: 0x7c1526, socks: 0x7c1526, pattern: "solid" },
+  { label: "Gul / blå", shirt: 0xf3c300, second: 0x143a7b, shorts: 0x143a7b, socks: 0xf3c300, pattern: "solid" },
+  { label: "Gul / svart", shirt: 0xf3c300, second: 0x161819, shorts: 0x161819, socks: 0xf3c300, pattern: "solid" },
+  { label: "Grön / vit", shirt: 0x11793d, second: 0xffffff, shorts: 0xf4f4f4, socks: 0x11793d, pattern: "solid" },
+  { label: "Grönvit randig", shirt: 0x11793d, second: 0xffffff, shorts: 0xf4f4f4, socks: 0x11793d, pattern: "stripes" },
+  { label: "Grön / svart", shirt: 0x0d6b35, second: 0x141618, shorts: 0x141618, socks: 0x0d6b35, pattern: "solid" },
+  { label: "Svart / vit", shirt: 0x1b1d1f, second: 0xf2f2f2, shorts: 0xf2f2f2, socks: 0x1b1d1f, pattern: "solid" },
+  { label: "Svartvit randig", shirt: 0x1b1d1f, second: 0xf2f2f2, shorts: 0x1b1d1f, socks: 0x1b1d1f, pattern: "stripes" },
+  { label: "Vit / svart", shirt: 0xf2f2f2, second: 0x1b1d1f, shorts: 0x1b1d1f, socks: 0xf2f2f2, pattern: "solid" },
+  { label: "Vit / blå", shirt: 0xf2f2f2, second: 0x1b4f9c, shorts: 0x1b4f9c, socks: 0xf2f2f2, pattern: "solid" },
+  { label: "Orange / svart", shirt: 0xe4690f, second: 0x161819, shorts: 0x161819, socks: 0xe4690f, pattern: "solid" },
+  { label: "Blå med gult band", shirt: 0x1b4f9c, second: 0xf3c300, shorts: 0x1b4f9c, socks: 0x1b4f9c, pattern: "band" },
+  { label: "Röd / vit i halvor", shirt: 0xc8102e, second: 0xf2f2f2, shorts: 0x141618, socks: 0xc8102e, pattern: "halves" },
+  { label: "Himmelsblå / vit", shirt: 0x7fc4e8, second: 0xffffff, shorts: 0xf4f4f4, socks: 0x7fc4e8, pattern: "solid" },
+];
+
+const KIT_KEY = "fk_straffliga_kit_";
+
+function savedKitIndex(club) {
+  try {
+    const v = localStorage.getItem(KIT_KEY + club.id);
+    if (v === null) return -1;
+    const n = parseInt(v, 10);
+    return n >= 0 && n < KITS.length ? n : -1;
+  } catch (e) {
+    return -1;
+  }
+}
+
+function kitIndexFor(club) {
+  const saved = savedKitIndex(club);
+  return saved >= 0 ? saved : hashOf(club.name) % KITS.length;
+}
+
+function saveKitIndex(club, i) {
+  try {
+    localStorage.setItem(KIT_KEY + club.id, String(i));
+  } catch (e) { /* ignoreras */ }
+}
+
+function kitOf(club) {
+  return KITS[kitIndexFor(club)];
+}
+
+function colorDistance(a, b) {
+  const dr = ((a >> 16) & 255) - ((b >> 16) & 255);
+  const dg = ((a >> 8) & 255) - ((b >> 8) & 255);
+  const db = (a & 255) - (b & 255);
+  return Math.sqrt(dr * dr + dg * dg + db * db);
+}
+
+/** Motståndarens ställ, men bytt till nästa som syns tydligt mot vårt eget. */
+function opponentKit(own, opp) {
+  const mine = kitOf(own);
+  const base = kitIndexFor(opp);
+  for (let i = 0; i < KITS.length; i++) {
+    const k = KITS[(base + i) % KITS.length];
+    if (colorDistance(k.shirt, mine.shirt) > 95) return k;
+  }
+  return KITS[base];
+}
+
+/** Färgerna som 3D-scenen behöver. */
+function sceneColors(club, kit) {
   return {
-    shirt: hslToHex(hue, 62, 44),
-    shorts: (h >> 3) % 3 === 0 ? 0xf2f2f2 : hslToHex(alt, 30, 22),
-    socks: hslToHex(hue, 55, 38),
-    gloves: hslToHex(alt, 78, 55),
-    css: "#" + hslToHex(hue, 62, 44).toString(16).padStart(6, "0"),
-    cssAlt: "#" + hslToHex(alt, 55, 34).toString(16).padStart(6, "0"),
+    shirt: kit.shirt,
+    second: kit.second,
+    shorts: kit.shorts,
+    socks: kit.socks,
+    gloves: 0xf4f4f4,
+    pattern: kit.pattern,
+    seed: hashOf(club.id) % 9973,
   };
 }
 
+const hex6 = (c) => "#" + c.toString(16).padStart(6, "0");
+
 /** Genererad sköld med klubbens initialer, som data-URI. */
 function initialsCrest(club) {
-  const c = fallbackColors(club);
+  const kit = kitOf(club);
+  const main = hex6(kit.shirt);
+  const alt = hex6(kit.second);
   const words = String(club.name || "?")
     .replace(/[()]/g, "")
     .split(/\s+/)
     .filter((w) => w.length > 1);
   let ini = words.slice(0, 3).map((w) => w[0].toUpperCase()).join("");
   if (ini.length < 2 && club.name) ini = club.name.slice(0, 2).toUpperCase();
+  const light = colorDistance(kit.shirt, 0xffffff) < 140;
   const svg =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
-    '<path d="M32 2 60 10v26c0 14-12 22-28 26C16 58 4 50 4 36V10z" fill="' + c.css + '" stroke="' + c.cssAlt + '" stroke-width="3"/>' +
-    '<path d="M32 2 60 10v10H4V10z" fill="' + c.cssAlt + '" opacity="0.55"/>' +
+    '<path d="M32 2 60 10v26c0 14-12 22-28 26C16 58 4 50 4 36V10z" fill="' + main + '" stroke="#1c231f" stroke-width="4" stroke-opacity="0.35"/>' +
+    '<path d="M32 2 60 10v26c0 14-12 22-28 26C16 58 4 50 4 36V10z" fill="none" stroke="' + alt + '" stroke-width="2.5"/>' +
+    '<path d="M32 2 60 10v10H4V10z" fill="' + alt + '" opacity="0.55"/>' +
     '<text x="32" y="42" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" ' +
-    'font-size="' + (ini.length > 2 ? 19 : 24) + '" font-weight="bold" fill="#ffffff">' + escapeHtml(ini) + "</text></svg>";
+    'font-size="' + (ini.length > 2 ? 19 : 24) + '" font-weight="bold" fill="' + (light ? "#1c231f" : "#ffffff") + '">' +
+    escapeHtml(ini) + "</text></svg>";
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+}
+
+/** Liten tröjikon till matchställsvalet. */
+function kitShirtSvg(kit) {
+  const body = "M22 6 L13 12 L8 30 L17 33 L17 58 L47 58 L47 33 L56 30 L51 12 L42 6 C38 13 26 13 22 6 Z";
+  const main = hex6(kit.shirt);
+  const alt = hex6(kit.second);
+  let overlay = "";
+  if (kit.pattern === "stripes") {
+    overlay = "";
+    for (let i = 0; i < 4; i++) {
+      overlay += '<rect x="' + (12 + i * 11) + '" y="0" width="5.5" height="64" fill="' + alt + '"/>';
+    }
+  } else if (kit.pattern === "band") {
+    overlay = '<rect x="0" y="26" width="64" height="13" fill="' + alt + '"/>';
+  } else if (kit.pattern === "halves") {
+    overlay = '<rect x="32" y="0" width="32" height="64" fill="' + alt + '"/>';
+  }
+  const svg =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
+    '<defs><clipPath id="c"><path d="' + body + '"/></clipPath></defs>' +
+    '<path d="' + body + '" fill="' + main + '"/>' +
+    (overlay ? '<g clip-path="url(#c)">' + overlay + "</g>" : "") +
+    '<path d="M22 6 C26 13 38 13 42 6 L42 11 C38 17 26 17 22 11 Z" fill="' + alt + '"/>' +
+    '<path d="' + body + '" fill="none" stroke="rgba(0,0,0,0.35)" stroke-width="2"/>' +
+    "</svg>";
   return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 }
 
@@ -130,76 +241,28 @@ function applyCrest(img, club) {
   img.src = crestSrc(club);
 }
 
-/**
- * Försöker läsa ut klubbens färger ur emblemet. Lyckas bara om bildservern
- * tillåter det (CORS) — annars används namnbaserade färger.
- */
-function clubColors(club) {
-  const fb = fallbackColors(club);
-  if (!club.logo_url) return Promise.resolve(fb);
-  if (club._colors) return Promise.resolve(club._colors);
+/** Avstånd mellan två klubbar i kilometer. */
+function distanceKm(a, b) {
+  if (a.lat == null || b.lat == null) return null;
+  const R = 6371;
+  const rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad;
+  const dLon = (b.lon - a.lon) * rad;
+  const h =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
 
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    let done = false;
-    const finish = (val) => {
-      if (done) return;
-      done = true;
-      club._colors = val;
-      resolve(val);
-    };
-    setTimeout(() => finish(fb), 2500);
-    img.onerror = () => finish(fb);
-    img.onload = () => {
-      try {
-        const S = 32;
-        const cv = document.createElement("canvas");
-        cv.width = cv.height = S;
-        const g = cv.getContext("2d");
-        g.drawImage(img, 0, 0, S, S);
-        const d = g.getImageData(0, 0, S, S).data;
-        const buckets = {};
-        for (let i = 0; i < d.length; i += 4) {
-          if (d[i + 3] < 140) continue;
-          const r = d[i];
-          const gg = d[i + 1];
-          const b = d[i + 2];
-          const max = Math.max(r, gg, b);
-          const min = Math.min(r, gg, b);
-          if (max > 238 && max - min < 22) continue; // nästan vitt
-          if (max < 30) continue; // nästan svart
-          const key = ((r >> 5) << 10) | ((gg >> 5) << 5) | (b >> 5);
-          const bucket = buckets[key] || (buckets[key] = { n: 0, r: 0, g: 0, b: 0, sat: max - min });
-          bucket.n++;
-          bucket.r += r;
-          bucket.g += gg;
-          bucket.b += b;
-        }
-        const list = Object.keys(buckets)
-          .map((k) => {
-            const b = buckets[k];
-            return { n: b.n, sat: b.sat, r: (b.r / b.n) | 0, g: (b.g / b.n) | 0, b: (b.b / b.n) | 0 };
-          })
-          .sort((a, b) => b.n * (1 + b.sat / 255) - a.n * (1 + a.sat / 255));
-        if (!list.length) return finish(fb);
-        const hex = (c) => (c.r << 16) | (c.g << 8) | c.b;
-        const primary = list[0];
-        const secondary = list[1] || { r: 245, g: 245, b: 245 };
-        finish({
-          shirt: hex(primary),
-          shorts: list[1] ? hex(secondary) : 0xf2f2f2,
-          socks: hex(primary),
-          gloves: fb.gloves,
-          css: "#" + hex(primary).toString(16).padStart(6, "0"),
-          cssAlt: "#" + hex(secondary).toString(16).padStart(6, "0"),
-        });
-      } catch (e) {
-        finish(fb); // canvas "tainted" — servern tillåter inte avläsning
-      }
-    };
-    img.src = club.logo_url;
-  });
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1 > 0 ? a.length - 1 : 0; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    const t = a[i];
+    a[i] = a[j];
+    a[j] = t;
+  }
+  return a;
 }
 
 /* =====================================================================
@@ -210,8 +273,11 @@ const state = {
   clubs: [],          // alla klubbar (för topplistans uppslag)
   byId: {},
   playable: [],       // klubbar man kan välja i spelet
+  shuffled: [],       // samma lista i blandad ordning
+  nearby: [],         // motståndarkandidater sorterade efter avstånd
   districts: [],
   pickMode: "own",    // "own" | "opponent"
+  kitClub: null,      // klubben vars matchställ visas
   own: null,
   opp: null,
   match: null,
@@ -223,7 +289,7 @@ const state = {
    Skärmhantering
    ===================================================================== */
 
-const SCREENS = ["screenIntro", "screenPick", "screenGame", "screenResult", "screenBoard"];
+const SCREENS = ["screenIntro", "screenPick", "screenKit", "screenGame", "screenResult", "screenBoard"];
 
 function show(id) {
   SCREENS.forEach((s) => $(s).classList.toggle("is-active", s === id));
@@ -285,15 +351,17 @@ async function loadClubs() {
     district: c.district || "",
     country: c.country || "SE",
     logo_url: c.logo_url || "",
+    lat: typeof c.lat === "number" ? c.lat : null,
+    lon: typeof c.lon === "number" ? c.lon : null,
   }));
   state.clubs.forEach((c) => {
     c._search = normalize(c.name + " " + (c.city || "") + " " + (c.municipality || ""));
     state.byId[c.id] = c;
   });
 
-  state.playable = state.clubs
-    .filter((c) => c.country === PLAYABLE_COUNTRY)
-    .sort((a, b) => a.name.localeCompare(b.name, "sv"));
+  state.playable = state.clubs.filter((c) => c.country === PLAYABLE_COUNTRY);
+  // Blandad ordning, så att det inte alltid är samma klubbar högst upp
+  state.shuffled = shuffle(state.playable);
   state.districts = Array.from(new Set(state.playable.map((c) => c.district).filter(Boolean))).sort(
     (a, b) => a.localeCompare(b, "sv")
   );
@@ -328,8 +396,25 @@ function openPicker(mode) {
   $("pickTitle").textContent = mode === "own" ? "Välj din förening" : "Välj motståndare";
   $("pickSub").textContent =
     mode === "own"
-      ? "Sök på klubbnamn eller ort, eller filtrera på distrikt. Poängen du spelar in hamnar på den här föreningen."
-      : "Vilken förening ska " + (state.own ? state.own.name : "din klubb") + " möta?";
+      ? "Sök på klubbnamn eller ort, eller filtrera på distrikt. Listan visar ett blandat urval — poängen du spelar in hamnar på den förening du väljer."
+      : "Närmaste föreningarna till " + (state.own ? state.own.name : "din klubb") +
+        " visas först, så att det blir ett lokalt derby. Sök om du vill möta någon längre bort.";
+
+  if (mode === "opponent" && state.own) {
+    // Sortera motståndarna efter fågelvägen från den egna klubben
+    const withDist = state.playable
+      .filter((c) => c.id !== state.own.id)
+      .map((c) => {
+        c._km = distanceKm(state.own, c);
+        return c;
+      });
+    withDist.sort((a, b) => {
+      if (a._km == null) return b._km == null ? 0 : 1;
+      if (b._km == null) return -1;
+      return a._km - b._km;
+    });
+    state.nearby = withDist;
+  }
   $("clubSearch").value = "";
   $("districtFilter").value = "";
   renderClubs();
@@ -341,7 +426,8 @@ function filteredClubs() {
   const q = normalize($("clubSearch").value);
   const dist = $("districtFilter").value;
   const terms = q ? q.split(" ") : [];
-  return state.playable.filter((c) => {
+  const base = state.pickMode === "opponent" && state.nearby.length ? state.nearby : state.shuffled;
+  return base.filter((c) => {
     if (dist && c.district !== dist) return false;
     if (state.pickMode === "opponent" && state.own && c.id === state.own.id) return false;
     if (!terms.length) return true;
@@ -370,12 +456,18 @@ function renderClubs() {
     applyCrest(img, c);
     const box = document.createElement("span");
     const pts = boardTotals[c.id] && boardTotals[c.id].points;
+    let extra = "";
+    if (state.pickMode === "opponent" && c._km != null) {
+      extra = '<span class="cc-km">' + (c._km < 1 ? "under 1 km bort" : Math.round(c._km) + " km bort") + "</span>";
+    } else if (pts) {
+      extra = '<span class="cc-pts">' + pts + " p i Straffligan</span>";
+    }
     box.innerHTML =
       '<span class="cc-name">' + escapeHtml(c.name) + "</span>" +
       '<span class="cc-where">' +
       escapeHtml([titleCase(c.city) || c.municipality, c.district].filter(Boolean).join(" · ")) +
       "</span>" +
-      (pts ? '<span class="cc-pts">' + pts + " p i Straffligan</span>" : "");
+      extra;
     btn.appendChild(img);
     btn.appendChild(box);
     btn.onclick = () => choose(c);
@@ -397,11 +489,47 @@ function choose(club) {
     try {
       localStorage.setItem("fk_straffliga_club", club.id);
     } catch (e) { /* ignoreras */ }
-    openPicker("opponent");
+    // Har klubben inget matchställ valt än får besökaren välja det en gång
+    if (savedKitIndex(club) < 0) openKit(club);
+    else openPicker("opponent");
   } else {
     state.opp = club;
     startMatch();
   }
+}
+
+/* =====================================================================
+   Matchställsväljaren
+   ===================================================================== */
+
+function openKit(club) {
+  state.kitClub = club;
+  $("kitTitle").textContent = "Vilka färger spelar " + club.name + " i?";
+  $("kitClubName").textContent = club.name;
+  applyCrest($("kitCrest"), club);
+
+  const grid = $("kitGrid");
+  grid.innerHTML = "";
+  const current = kitIndexFor(club);
+  KITS.forEach((kit, i) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "kit-card" + (i === current ? " is-picked" : "");
+    btn.innerHTML =
+      '<img src="' + kitShirtSvg(kit) + '" alt="" width="56" height="56" />' +
+      '<span>' + escapeHtml(kit.label) + "</span>";
+    btn.onclick = () => {
+      saveKitIndex(club, i);
+      Array.prototype.forEach.call(grid.children, (el) => el.classList.remove("is-picked"));
+      btn.classList.add("is-picked");
+      applyCrest($("kitCrest"), club); // skölden följer färgerna om emblem saknas
+    };
+    grid.appendChild(btn);
+  });
+
+  // Har klubben inget val sparat ännu räknas förslaget som valt
+  if (savedKitIndex(club) < 0) saveKitIndex(club, current);
+  show("screenKit");
 }
 
 /* =====================================================================
@@ -476,8 +604,10 @@ async function startMatch() {
   state.scene.resize();
   state.scene.start();
 
-  const [homeColors, awayColors] = await Promise.all([clubColors(state.own), clubColors(state.opp)]);
-  state.scene.setTeams(homeColors, awayColors);
+  state.scene.setTeams(
+    sceneColors(state.own, kitOf(state.own)),
+    sceneColors(state.opp, opponentKit(state.own, state.opp))
+  );
   $("stageLoading").hidden = true;
 
   nextKick();
@@ -671,6 +801,8 @@ function setupPlayerShot() {
 function onCanvasAim(ev) {
   if (ui.busy || state.match.over) return;
   if (currentTeam(state.match) !== "home") return;
+  // Vänta in kamerabytet, annars pekar strålen från fel läge
+  if (!state.scene.cameraSettled()) return;
   const pt = ev.touches && ev.touches[0] ? ev.touches[0] : ev;
   const hit = state.scene.pickAim(pt.clientX, pt.clientY);
   if (!hit) return;
@@ -809,9 +941,21 @@ async function finishMatch(won) {
   m.over = true;
   m.won = won;
   stopPowerBar();
-  state.scene.setPhase("idle");
-  state.scene.celebrate();
   updateScoreboard();
+  $("zonePicker").hidden = true;
+  $("powerWrap").hidden = true;
+  $("btnAction").disabled = true;
+  $("btnAction").textContent = won ? "Vinst!" : "Förlust";
+  $("controlHint").textContent = "";
+
+  // Slutgest framför kameran: målgest vid vinst, förlustgest vid förlust
+  state.scene.setPhase("ending");
+  const box = $("outcome");
+  box.className = "outcome " + (won ? "is-goal" : "is-miss");
+  $("outcomeText").textContent = won ? "VINST!" : "FÖRLUST";
+  box.hidden = false;
+  await state.scene.playEnding(won);
+  box.hidden = true;
 
   await window.FKScore.reportResult(state.own.id, state.opp.id, won).catch(() => {});
   await showResult(won ? "win" : "loss");
@@ -940,6 +1084,9 @@ function fillBoardDistricts() {
 function bindEvents() {
   $("btnStart").onclick = () => openPicker("own");
   $("btnChangeClub").onclick = () => openPicker("own");
+  $("btnChangeKit").onclick = () => state.own && openKit(state.own);
+  $("btnKitBack").onclick = () => openPicker("own");
+  $("btnKitDone").onclick = () => openPicker("opponent");
   $("btnToBoard").onclick = openBoard;
   $("btnResultBoard").onclick = openBoard;
   $("btnBoardBack").onclick = () => show(state.own ? "screenResult" : "screenIntro");
@@ -1016,6 +1163,7 @@ async function init() {
       $("btnStart").textContent = "⚽ Spela för " + state.own.name;
       $("btnStart").onclick = () => openPicker("opponent");
       $("btnChangeClub").hidden = false;
+      $("btnChangeKit").hidden = false;
     }
   } catch (e) { /* ignoreras */ }
 
@@ -1038,6 +1186,7 @@ async function init() {
     $("btnStart").textContent = "⚽ Spela för " + state.own.name;
     $("btnStart").onclick = () => openPicker("opponent");
     $("btnChangeClub").hidden = false;
+    $("btnChangeKit").hidden = false;
     openPicker("opponent");
   } else if (params.get("topplista") !== null) {
     openBoard();
