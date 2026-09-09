@@ -25,7 +25,10 @@
 <nav class="nav">
   <div class="container">
     <a class="brand-link" href="index.html"><span class="ball">⚽</span> Fotbollskarta</a>
-    <a class="nav-cta" href="karta.html">Öppna kartan →</a>
+    <div class="nav-actions">
+      <a class="nav-cta nav-play" href="straffligan.html"><span class="np-ball">⚽</span> Straffligan</a>
+      <a class="nav-cta nav-map" href="karta.html">🗺️ Öppna kartan →</a>
+    </div>
   </div>
 </nav>
 
@@ -53,6 +56,63 @@
     </div>
 
     <a class="btn-primary" href="karta.html">⚽ Öppna kartan</a>
+
+    <a class="straff-card" href="straffligan.html">
+      <span class="sc-art" aria-hidden="true">
+        <svg viewBox="0 0 128 96" width="128" height="96" focusable="false">
+          <defs>
+            <clipPath id="scClip"><rect width="128" height="96" rx="12" /></clipPath>
+            <linearGradient id="scSky" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#04170c" />
+              <stop offset="1" stop-color="#11482a" />
+            </linearGradient>
+            <radialGradient id="scLamp" cx="0.52" cy="0.06" r="0.8">
+              <stop offset="0" stop-color="#ffe98a" stop-opacity="0.55" />
+              <stop offset="1" stop-color="#ffe98a" stop-opacity="0" />
+            </radialGradient>
+          </defs>
+          <g clip-path="url(#scClip)">
+            <rect width="128" height="96" fill="url(#scSky)" />
+            <rect width="128" height="96" fill="url(#scLamp)" />
+            <rect y="66" width="128" height="30" fill="#1a7a3c" />
+            <g fill="#ffffff" opacity="0.05">
+              <rect y="66" width="128" height="7" />
+              <rect y="80" width="128" height="7" />
+            </g>
+            <g stroke="#eafcef" stroke-width="0.7" opacity="0.45">
+              <path d="M30 24V66M38 24V66M46 24V66M54 24V66M62 24V66M70 24V66M78 24V66M86 24V66M94 24V66" />
+              <path d="M30 32H98M30 40H98M30 48H98M30 56H98M30 64H98" />
+            </g>
+            <path d="M30 66V24h68v42" fill="none" stroke="#ffffff" stroke-width="3.6" stroke-linejoin="round" />
+            <g stroke="#07230f" fill="none" stroke-linecap="round">
+              <path d="M58 51 44 57" stroke-width="10.5" />
+              <path d="M45 57 61 62" stroke-width="8" />
+              <path d="M61 62 70 65" stroke-width="6" />
+              <path d="M56 49 39 43" stroke-width="5" />
+              <path d="M56 53 41 54" stroke-width="4.5" />
+            </g>
+            <circle cx="60.5" cy="44" r="5.4" fill="#07230f" />
+            <circle cx="37.5" cy="42.5" r="3" fill="#f5c518" />
+            <circle cx="39.5" cy="54.2" r="2.8" fill="#f5c518" />
+            <path d="M52 84Q76 70 90 46" fill="none" stroke="#f5c518" stroke-width="2.2" stroke-dasharray="3 4.5" stroke-linecap="round" />
+            <circle cx="91" cy="42" r="6.6" fill="#ffffff" />
+            <g fill="#12231a">
+              <circle cx="91" cy="42" r="2" />
+              <circle cx="87" cy="39" r="1.1" />
+              <circle cx="95" cy="39" r="1.1" />
+              <circle cx="88" cy="46" r="1.1" />
+              <circle cx="94" cy="46" r="1.1" />
+            </g>
+          </g>
+        </svg>
+      </span>
+      <span class="sc-body">
+        <span class="sc-flag">Nytt · spela gratis</span>
+        <strong class="sc-title">Straffligan</strong>
+        <span class="sc-text">Fem straffar mot en annan klubb i 3D. Vinst ger din förening <b>+2 poäng</b> — ny topplista varje månad.</span>
+        <span class="sc-go">Spela för din förening →</span>
+      </span>
+    </a>
 
     <div class="hero-stats">
       <div class="hero-stat">
