@@ -196,12 +196,28 @@
   </div>
 </section>
 
-<section class="block alt-bg">
+<section class="block alt-bg" id="straffligan">
   <div class="container">
-    <h2>Nytt: Straffligan</h2>
+    <h2>Straffligan</h2>
     <p class="lead">Välj din förening, utmana en annan klubb och avgör straffsparkstävlingen i 3D. Vinst ger din förening +2 poäng i topplistan, förlust kostar 1 – och en ny topplista börjar varje månad.</p>
-    <div style="text-align:center">
-      <a class="btn-primary" href="straffligan.html" style="background:var(--brand-dark);color:#fff">⚽ Spela Straffligan</a>
+
+    <!-- Månadens topp 10, gemensam för alla besökare. Fylls av straffliga-topp.js -->
+    <div class="sl-top" id="slTop" hidden>
+      <div class="sl-head">
+        <span class="sl-trophy" aria-hidden="true">🏆</span>
+        <h3>Månadens topp 10</h3>
+        <span class="sl-month" id="slMonth"></span>
+      </div>
+
+      <p class="sl-loading" id="slLoading" hidden>Hämtar topplistan…</p>
+      <ol class="sl-list" id="slList"></ol>
+      <p class="sl-empty" id="slEmpty" hidden>Ingen har spelat än den här månaden. Vinn en straffsparkstävling och lägg din förening högst upp i listan.</p>
+      <p class="sl-note" id="slNote"></p>
+    </div>
+
+    <div class="sl-cta">
+      <a class="btn-primary sl-play" href="straffligan.html">⚽ Spela Straffligan</a>
+      <a class="sl-all" href="straffligan.html?topplista=manad">Hela topplistan →</a>
     </div>
   </div>
 </section>
@@ -235,5 +251,6 @@
   </div>
 </footer>
 
+<script src="straffliga-topp.js" defer></script>
 </body>
 </html>

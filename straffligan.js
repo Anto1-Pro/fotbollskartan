@@ -795,11 +795,23 @@ function runPowerBar() {
   ui.powerRaf = requestAnimationFrame(step);
 }
 
+/**
+ * Byter kameraläge i scenen. I målvaktsläget ritas 3D-vyn i ett brett band på
+ * höga skärmar (se body.is-keeping i straffligan.css) — hela målramen måste
+ * synas i bredd, annars går det inte att se om ett skott vid stolpen gick in.
+ * Canvasen byter då höjd, så scenen måste räkna om kameran.
+ */
+function setScenePhase(phase) {
+  document.body.classList.toggle("is-keeping", phase === "save");
+  state.scene.setPhase(phase);
+  state.scene.resize();
+}
+
 function setupPlayerShot() {
   const m = state.match;
   ui.busy = false;
   ui.aim = null;
-  state.scene.setPhase("shoot");
+  setScenePhase("shoot");
   state.scene.resetBall();
   state.scene.showAim(false);
   stopPowerBar();
@@ -874,7 +886,7 @@ async function doPlayerShot() {
 function setupPlayerSave() {
   const m = state.match;
   ui.busy = false;
-  state.scene.setPhase("save");
+  setScenePhase("save");
   state.scene.resetBall();
   state.scene.showAim(false);
   stopPowerBar();
@@ -966,7 +978,7 @@ async function finishMatch(won) {
   $("controlHint").textContent = "";
 
   // Slutgest framför kameran: målgest vid vinst, förlustgest vid förlust
-  state.scene.setPhase("ending");
+  setScenePhase("ending");
   const box = $("outcome");
   box.className = "outcome " + (won ? "is-goal" : "is-miss");
   $("outcomeText").textContent = won ? "VINST!" : "FÖRLUST";
@@ -1293,6 +1305,9 @@ async function init() {
     $("btnChangeKit").hidden = false;
     proceedToOpponent();
   } else if (params.get("topplista") !== null) {
+    // ?topplista=alla öppnar listan för alla tider, annars månadens
+    boardPeriod = params.get("topplista") === "alla" ? "all" : "month";
+    setBoardPeriod(boardPeriod);
     openBoard();
   }
 }

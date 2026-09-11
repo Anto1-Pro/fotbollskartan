@@ -165,10 +165,15 @@
       <div class="dots-row" id="dotsAway" aria-label="Motståndarens straffar"></div>
     </div>
 
-    <div class="stage">
-      <canvas id="pitch" aria-label="3D-vy av straffsparken"></canvas>
+    <div class="stage-area">
+      <div class="stage">
+        <canvas id="pitch" aria-label="3D-vy av straffsparken"></canvas>
 
-      <div class="stage-loading" id="stageLoading"><span class="spinner"></span> Bygger arenan…</div>
+        <div class="stage-loading" id="stageLoading"><span class="spinner"></span> Bygger arenan…</div>
+
+        <!-- Utfallstext mitt i bild -->
+        <div class="outcome" id="outcome" hidden><span id="outcomeText"></span></div>
+      </div>
 
       <!-- Målvaktsläget: sex rutor att kasta sig mot -->
       <div class="zone-picker" id="zonePicker" hidden>
@@ -183,8 +188,6 @@
         </div>
       </div>
 
-      <!-- Utfallstext mitt i bild -->
-      <div class="outcome" id="outcome" hidden><span id="outcomeText"></span></div>
     </div>
 
     <div class="controls" id="controls">

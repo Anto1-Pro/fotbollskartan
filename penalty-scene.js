@@ -13,6 +13,14 @@ const GOAL_H = 2.44;
 const POST_R = 0.06;
 const NET_DEPTH = 1.9;
 const SPOT_Z = 11; // straffpunkten, 11 m från mållinjen
+
+// Hela målramen plus marginal måste synas i bredd, annars går det inte att se
+// om ett skott vid stolpen gick in. En perspektivkameras vidd i bredd följer av
+// höjdvinkeln och bildens proportioner, så på en hög mobilskärm blir bilden för
+// smal — då vidgas vinkeln (och i sista hand backar kameran). Se _fitFov().
+const SAVE_FOV = 48; // höjdvinkel på en bred skärm, grader
+const SAVE_DIST = 6.2; // meter bakom mållinjen
+const VIEW_HALF = 4.55; // meter som ska synas från mittlinjen och ut åt sidan
 const BALL_R = 0.11;
 const PITCH = 70; // gräsplanet är 70×70 m med mållinjen i mitten
 
@@ -2055,16 +2063,20 @@ export class PenaltyScene {
     this._phaseAt = performance.now();
     if (phase === "shoot") {
       // Bakom skytten, som på tv:ns straffkamera
-      this._camGoal.pos.set(0.4, 2.1, SPOT_Z + 9);
+      const f = this._fitView(32, SPOT_Z + 9, 46);
+      this._camGoal.pos.set(0.4, 2.1, f.dist);
       this._camGoal.target.set(0, 1.25, 0);
-      this.camera.fov = 32;
+      this.camera.fov = f.fov;
     } else if (phase === "save") {
       // Bakom och över målet, så hela målramen och skytten syns
       // Låg kamera strax bakom nätet — målramen hamnar mitt i bild och
-      // skytten syns genom målmunnen, som en riktig målkamera.
-      this._camGoal.pos.set(0, 1.3, -5.6);
+      // skytten syns genom målmunnen, som en riktig målkamera. Avståndet
+      // räknas ut efter bildens proportioner, annars hamnar stolparna utanför
+      // bild på en hög mobilskärm (se _viewSize).
+      const f = this._fitView(SAVE_FOV, SAVE_DIST, 86);
+      this.camera.fov = f.fov;
+      this._camGoal.pos.set(0, 1.3, -f.dist);
       this._camGoal.target.set(0, 1.3, 12);
-      this.camera.fov = 48;
     } else if (phase === "ending") {
       // Nära, låg vinkel framifrån — gesten ska fylla bilden
       this._camGoal.pos.set(1.15, 1.14, SPOT_Z + 2.75);
@@ -2081,6 +2093,38 @@ export class PenaltyScene {
       this._cam.target.copy(this._camGoal.target);
     }
     if (this.keeper) this._rebuildPlayers();
+  }
+
+  /** Bildens proportioner just nu (bredd delat med höjd). */
+  _aspect() {
+    const w = this.canvas.clientWidth || 800;
+    const h = this.canvas.clientHeight || 450;
+    return w / Math.max(1, h);
+  }
+
+  /**
+   * Räknar ut höjdvinkel och avstånd så att VIEW_HALF meter alltid syns åt varje
+   * sida, oavsett om skärmen är bred eller hög.
+   *
+   * En perspektivkamera anges med höjdvinkeln; bredden blir
+   * tan(vinkel/2) · proportioner. På en hög mobilskärm blir proportionerna små
+   * och bilden smal, och då hamnar målstolparna utanför kanten. Först vidgas
+   * vinkeln (upp till maxFov), och räcker inte det backar kameran.
+   *
+   * @param {number} baseFov  höjdvinkel på en bred skärm
+   * @param {number} dist     önskat avstånd till målplanet
+   * @param {number} maxFov   hur vid vinkeln får bli innan kameran backar
+   */
+  _fitView(baseFov, dist, maxFov) {
+    const aspect = this._aspect();
+    const wanted = 2 * Math.atan(VIEW_HALF / (dist * aspect)) * (180 / Math.PI);
+    let fov = Math.max(baseFov, Math.min(maxFov, wanted));
+    let d = dist;
+    if (wanted > maxFov) {
+      // Vinkeln räcker inte — backa i stället, så bilden inte blir extremt vid
+      d = VIEW_HALF / (Math.tan((fov * Math.PI) / 360) * aspect);
+    }
+    return { fov: fov, dist: d };
   }
 
   /**
@@ -2469,7 +2513,19 @@ export class PenaltyScene {
     const h = this.canvas.clientHeight || 450;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
+    // Vinkel och avstånd hänger på proportionerna, så de räknas om när fönstret
+    // ändras eller telefonen vrids — annars kan målstolparna hamna utanför bild.
+    if (this.phase === "shoot" || this.phase === "save") {
+      const f =
+        this.phase === "shoot"
+          ? this._fitView(32, SPOT_Z + 9, 46)
+          : this._fitView(SAVE_FOV, SAVE_DIST, 86);
+      this.camera.fov = f.fov;
+      this._camGoal.pos.z = this.phase === "shoot" ? f.dist : -f.dist;
+      if (!this.running) this._cam.pos.z = this._camGoal.pos.z;
+    }
     this.camera.updateProjectionMatrix();
+    this.renderer.render(this.scene, this.camera);
   }
 
   dispose() {
