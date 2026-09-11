@@ -2231,24 +2231,63 @@ export class PenaltyScene {
     const targetY = Math.max(0.05, o.ty * GOAL_H);
     const start = new THREE.Vector3(0, BALL_R, SPOT_Z);
 
+    const side = Math.sign(o.tx) || 1;
+
+    // Kurva och lyft — behövs innan slutpunkten, eftersom slutpunkten räknas
+    // baklänges ur var bollen ska passera målramen
+    const curve = (o.curve == null ? 0 : o.curve) * lerp(1.4, 0.55, power);
+    const apex = lerp(0.55, 1.15, Math.max(0, targetY / GOAL_H - 0.15)) + power * 0.35;
+    const midY = Math.max(start.y, targetY) + apex * 0.42;
+
     // Slutpunkt: i nätet vid mål, förbi målet vid miss
     let endZ = -NET_DEPTH * 0.62;
     if (o.outcome === "miss") endZ = -3.4;
     if (o.outcome === "post") endZ = -0.1;
     const end = new THREE.Vector3(targetX, targetY, endZ);
+
+    /* Var banan skär mållinjen
+       ------------------------
+       Bezierkurvans styrpunkt ligger mitt emellan start och slut i z, så z är
+       linjärt i u — skärningen med mållinjen (z = 0) ligger alltså på ett känt
+       u. Då går det att räkna slutpunkten baklänges ur var bollen SKA passera
+       ramen. Utan det kunde ett skott som räknades som utanför passera
+       innanför stolpen och fortsätta rakt genom nätet, vilket hände på hårda
+       skott nära sidan: slutpunkten låg utanför, men vägen dit gick igenom. */
+    const uP = start.z / (start.z - endZ);
+    const sideBend = 2 * uP * (1 - uP) * curve;
+    const xAtLine = (ex) => uP * ex + sideBend;
+    const endXFor = (x) => (x - sideBend) / uP;
+    const yAtLine = (ey) =>
+      (1 - uP) * (1 - uP) * start.y + 2 * uP * (1 - uP) * midY + uP * uP * ey;
+    const endYFor = (y) =>
+      (y - (1 - uP) * (1 - uP) * start.y - 2 * uP * (1 - uP) * midY) / (uP * uP);
+
     if (o.outcome === "miss") {
-      // Utanför ramen — antingen vid sidan eller över ribban
-      const overBar = o.ty > 0.95;
-      end.x = overBar ? targetX : Math.sign(o.tx || 1) * (GOAL_W / 2 + 1.1);
-      end.y = overBar ? Math.max(GOAL_H + 0.9, targetY) : targetY;
+      if (o.ty > 0.95) {
+        // Över ribban, med marginal även där banan skär mållinjen
+        const need = GOAL_H + POST_R + BALL_R + 0.12;
+        if (yAtLine(end.y) < need) end.y = endYFor(need);
+      } else {
+        // Utanför stolpen, och redan utanför när bollen passerar ramen
+        const clear = GOAL_W / 2 + POST_R + BALL_R + 0.18;
+        end.x = endXFor(side * Math.max(Math.abs(targetX), clear));
+      }
+    } else if (o.outcome === "post") {
+      // Snäppt till stolpen eller ribban, så bilden stämmer med utfallet
+      const touch = POST_R + BALL_R * 0.6;
+      if (Math.abs(o.tx) < 0.9) {
+        end.y = endYFor(clamp(yAtLine(targetY), GOAL_H - touch, GOAL_H + touch));
+      } else {
+        const post = GOAL_W / 2;
+        end.x = endXFor(
+          side * clamp(Math.abs(xAtLine(targetX)), post - touch, post + touch)
+        );
+      }
     }
 
-    // Kurva och lyft
-    const curve = (o.curve == null ? 0 : o.curve) * lerp(1.4, 0.55, power);
-    const apex = lerp(0.55, 1.15, Math.max(0, targetY / GOAL_H - 0.15)) + power * 0.35;
     const mid = new THREE.Vector3(
       (start.x + end.x) / 2 + curve,
-      Math.max(start.y, targetY) + apex * 0.42,
+      midY,
       (start.z + end.z) / 2
     );
     const path = new THREE.QuadraticBezierCurve3(start, mid, end);
@@ -2268,6 +2307,11 @@ export class PenaltyScene {
     const centreDive = Math.abs(diveTo.x) < 0.9;
     const diveDirX = Math.sign(diveTo.x) || 1;
     const diveLateral = diveTo.x * 0.82;
+
+    // Riktningen på returen vid en räddning slumpas EN gång här. Tidigare
+    // slumpades den inne i animationen, alltså varje bildruta, så bollen
+    // hoppade mellan höger och vänster och såg ut som två bollar.
+    const saveDir = centreDive ? (Math.random() < 0.5 ? -1 : 1) * 0.4 : diveDirX;
 
     const runUp = 0.72;
     const dive = 0.42;
@@ -2363,19 +2407,19 @@ export class PenaltyScene {
             self.ball.rotation.x -= dt * 3;
           } else if (o.outcome === "save") {
             // Bollen slås undan i den riktning målvakten kom ifrån
-            const dir = centreDive ? (Math.random() < 0.5 ? -1 : 1) * 0.4 : diveDirX;
             self.ball.position.set(
-              diveTo.x + dir * st * 5.2,
+              diveTo.x + saveDir * st * 5.2,
               Math.max(BALL_R, diveTo.y + st * 1.2 - st * st * 3.4),
               lerp(diveTo.z, 3.6, st)
             );
-            self.ball.rotation.z -= dt * 8 * (dir || 1);
+            self.ball.rotation.z -= dt * 8 * (saveDir || 1);
           } else if (o.outcome === "post") {
-            const dir = Math.sign(o.tx) || 1;
+            // Ribban studsar mest rakt upp och ut, stolpen ut åt sidan
+            const barHit = Math.abs(o.tx) < 0.9;
             self.ball.position.set(
-              end.x - dir * st * 3.1,
-              Math.max(BALL_R, end.y + st * 0.9 - st * st * 2.6),
-              lerp(end.z, 4.2, st)
+              end.x - (barHit ? side * 0.5 : side * 3.1) * st,
+              Math.max(BALL_R, end.y + st * (barHit ? 1.5 : 0.9) - st * st * (barHit ? 3.4 : 2.6)),
+              lerp(end.z, barHit ? 5.4 : 4.2, st)
             );
             self.ball.rotation.y -= dt * 9;
           } else {

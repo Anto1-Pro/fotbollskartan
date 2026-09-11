@@ -694,7 +694,9 @@ function resolveShot(aimX, aimY, power) {
 
   let outcome = null;
   const insideX = Math.abs(tx) <= 0.985;
-  const insideY = ty <= 0.985 && ty > 0.005;
+  // Ingen nedre gräns: ett skott längs marken är fullt giltigt. Tidigare
+  // räknades ty nära noll som "utanför", och då flög bollen ändå in i målet.
+  const insideY = ty <= 0.985;
   if (Math.abs(tx) > 0.985 && Math.abs(tx) < 1.045) outcome = "post";
   else if (ty > 0.985 && ty < 1.05 && Math.abs(tx) <= 1.02) outcome = "post";
   else if (!insideX || !insideY) outcome = "miss";
