@@ -154,7 +154,7 @@ function drawCrest(g, img, cx, cy, size) {
  *   oppCrest        – samma för motståndaren
  * @returns {Promise<{canvas: HTMLCanvasElement, blob: Blob|null}>}
  */
-export async function renderShareCard(o) {
+async function drawCard(o) {
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
@@ -224,13 +224,86 @@ export async function renderShareCard(o) {
   g.font = "700 30px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
   g.fillText("Spela straffar för din förening på fotbollskarta.se", W / 2, H - 48);
 
-  const blob = await new Promise((resolve) => {
+  return canvas;
+}
+
+/** PNG ur en canvas, eller null om canvasen är låst (emblem utan CORS). */
+function toBlob(canvas) {
+  return new Promise((resolve) => {
     try {
       canvas.toBlob((b) => resolve(b), "image/png");
     } catch (e) {
-      resolve(null); // canvasen är låst (emblem utan CORS) — då delas bara texten
+      resolve(null);
     }
   });
+}
 
-  return { canvas: canvas, blob: blob };
+/**
+ * Delningsbilden i kvadrat (1080×1080) — passar flöden, förhandsvisning och
+ * nedladdning.
+ * @returns {Promise<{canvas: HTMLCanvasElement, blob: Blob|null}>}
+ */
+export async function renderShareCard(o) {
+  const canvas = await drawCard(o);
+  return { canvas: canvas, blob: await toBlob(canvas) };
+}
+
+/**
+ * Samma bild i storyformat (1080×1920) för Instagram och Snapchat, där bilden
+ * hamnar i en story och fyller hela skärmen. Kortet ligger centrerat på samma
+ * nattarena, så det inte blir svarta kanter.
+ * @returns {Promise<{canvas: HTMLCanvasElement, blob: Blob|null}>}
+ */
+export async function renderStoryCard(o) {
+  const SW = 1080;
+  const SH = 1920;
+  const card = await drawCard(o);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = SW;
+  canvas.height = SH;
+  const g = canvas.getContext("2d");
+
+  const sky = g.createLinearGradient(0, 0, 0, SH);
+  sky.addColorStop(0, "#04150b");
+  sky.addColorStop(0.5, "#0b3a1f");
+  sky.addColorStop(1, "#031108");
+  g.fillStyle = sky;
+  g.fillRect(0, 0, SW, SH);
+
+  const lamp = g.createRadialGradient(SW * 0.5, 120, 40, SW * 0.5, 620, 1100);
+  lamp.addColorStop(0, "rgba(255, 233, 138, 0.3)");
+  lamp.addColorStop(1, "rgba(255, 233, 138, 0)");
+  g.fillStyle = lamp;
+  g.fillRect(0, 0, SW, SH);
+
+  /* Layout: Instagram och Snapchat lägger egna knappar över de översta ~120 och
+     nedersta ~220 punkterna, så allt viktigt ligger mellan dem. */
+  const cardW = SW - 60;
+  const cardH = cardW;
+  const x = 30;
+  const y = 372;
+
+  g.textAlign = "center";
+  g.fillStyle = GOLD;
+  g.font = "900 64px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+  g.fillText("SPELA FÖR DIN KLUBB", SW / 2, 268);
+
+  g.save();
+  g.shadowColor = "rgba(0, 0, 0, 0.55)";
+  g.shadowBlur = 48;
+  g.shadowOffsetY = 18;
+  g.drawImage(card, x, y, cardW, cardH);
+  g.restore();
+
+  // Adressen i en tydlig platta under kortet
+  const pill = { w: 820, h: 112, y: y + cardH + 78 };
+  g.fillStyle = GOLD;
+  roundRect(g, (SW - pill.w) / 2, pill.y, pill.w, pill.h, pill.h / 2);
+  g.fill();
+  g.fillStyle = "#22190a";
+  g.font = "900 52px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+  g.fillText("fotbollskarta.se/straffligan", SW / 2, pill.y + 72);
+
+  return { canvas: canvas, blob: await toBlob(canvas) };
 }

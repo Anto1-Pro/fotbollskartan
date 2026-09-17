@@ -5,7 +5,7 @@
  */
 
 import { PenaltyScene } from "./penalty-scene.js";
-import { renderShareCard } from "./share-card.js";
+import { renderShareCard, renderStoryCard } from "./share-card.js";
 
 /* =====================================================================
    Konstanter och hjälpfunktioner
@@ -1075,12 +1075,13 @@ async function prepareShare(kind) {
 
   $("shareText").textContent = text;
   $("shareLink").textContent = link;
-  shareState = { text: text, link: link, blob: null, file: null };
-  shareNote("");
-
-  // Bilden ritas efter texten, så rutan är användbar direkt
-  try {
-    const card = await renderShareCard({
+  shareState = {
+    text: text,
+    link: link,
+    blob: null,
+    file: null,
+    story: null, // storybilden ritas först när någon vill dela till en story
+    card: {
       own: own,
       opp: opp,
       won: won,
@@ -1089,7 +1090,13 @@ async function prepareShare(kind) {
       monthLabel: monthLabel(window.FKScore.currentMonth()).toLowerCase(),
       ownCrest: initialsCrest(own),
       oppCrest: initialsCrest(opp),
-    });
+    },
+  };
+  shareNote("");
+
+  // Bilden ritas efter texten, så rutan är användbar direkt
+  try {
+    const card = await renderShareCard(shareState.card);
     const img = $("sharePreview");
     if (card.blob) {
       shareState.blob = card.blob;
@@ -1107,6 +1114,42 @@ async function prepareShare(kind) {
   // "Dela…" visas bara där telefonens delningsruta finns
   const kanDela = typeof navigator !== "undefined" && !!navigator.share;
   document.querySelector('[data-share="native"]').hidden = !kanDela;
+
+  /* Snapchat och Instagram bara på mobilen
+     -------------------------------------
+     Instagram har ingen delningslänk från webben och Snapchats tar inte med
+     bilden, så båda går via telefonens delningsruta. På en dator leder de bara
+     till nedladdning plus "lägg upp i appen", vilket är en sämre knapp än
+     ingen knapp — där visas i stället en rad som säger var de finns. */
+  const mobil = isMobileShare();
+  document.querySelector('[data-share="snapchat"]').hidden = !mobil;
+  document.querySelector('[data-share="instagram"]').hidden = !mobil;
+  $("shareHint").hidden = mobil;
+}
+
+/** Är det en enhet med appar att dela till — alltså mobil eller pekplatta? */
+function isMobileShare() {
+  if (typeof navigator === "undefined" || !navigator.share) return false;
+  const grov = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+  const pek = (navigator.maxTouchPoints || 0) > 0;
+  return !!(grov || pek);
+}
+
+/**
+ * Bilden i storyformat (9:16), ritad först när den behövs. Instagram och
+ * Snapchat lägger delade bilder i en story, och då ska bilden fylla skärmen.
+ */
+async function storyFile() {
+  if (!shareState) return null;
+  if (shareState.story) return shareState.story;
+  try {
+    const story = await renderStoryCard(shareState.card);
+    if (!story.blob) return null;
+    shareState.story = new File([story.blob], "straffligan-story.png", { type: "image/png" });
+    return shareState.story;
+  } catch (e) {
+    return null;
+  }
 }
 
 function canShareFile() {
@@ -1144,9 +1187,10 @@ function downloadCard() {
 }
 
 /** Telefonens egen delningsruta — enda vägen till Instagram och Snapchat-bilder. */
-async function nativeShare(app) {
+async function nativeShare(fil) {
   const data = { text: shareState.text + "\n" + shareState.link };
-  if (canShareFile()) data.files = [shareState.file];
+  const bild = fil || (canShareFile() ? shareState.file : null);
+  if (bild && navigator.canShare && navigator.canShare({ files: [bild] })) data.files = [bild];
   try {
     await navigator.share(data);
     return true;
@@ -1188,13 +1232,17 @@ async function doShare(what) {
     return;
   }
 
-  // Snapchat och Instagram: bilden kan bara komma in via telefonens delningsruta
-  if (canShareFile() || (navigator.share && what === "snapchat")) {
-    if (await nativeShare(what)) {
+  /* Snapchat och Instagram lägger en delad bild i en story. Det finns ingen
+     webbadress som öppnar storyn direkt — Instagrams stories-schema kräver en
+     app med pasteboard-åtkomst — så vägen dit är telefonens delningsruta med
+     bilden bifogad, och då i storyformat (9:16) så den fyller skärmen. */
+  if (navigator.share) {
+    const story = await storyFile();
+    if (await nativeShare(story)) {
       shareNote(
         what === "instagram"
-          ? "Välj Instagram i listan – bilden följer med."
-          : "Välj Snapchat i listan – bilden följer med."
+          ? "Välj Instagram och sedan \"Story\" – bilden är i storyformat."
+          : "Välj Snapchat – bilden läggs i din story."
       );
       return;
     }
@@ -1204,13 +1252,25 @@ async function doShare(what) {
     shareNote("Snapchat tar bara med länken. Vill du ha bilden: ladda ner den och lägg upp den i appen.");
     return;
   }
-  // Instagram på dator: ingen delningslänk finns, så bilden laddas ner
+  // Ingen delningsruta (dator): ladda ner storybilden och kopiera texten
   const kopierat = await copyShareText();
-  const nedladdad = downloadCard();
+  const story = await storyFile();
+  let nedladdad = false;
+  if (story) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(story);
+    a.download = "straffligan-story.png";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    nedladdad = true;
+  } else {
+    nedladdad = downloadCard();
+  }
   shareNote(
-    (nedladdad ? "Bilden är nedladdad" : "Bilden kunde inte skapas") +
+    (nedladdad ? "Storybilden är nedladdad" : "Bilden kunde inte skapas") +
       (kopierat ? " och texten är kopierad" : "") +
-      ". Instagram går bara att lägga upp i appen – öppna den och välj bilden."
+      ". Stories går bara att lägga upp i appen – öppna den i telefonen och välj bilden."
   );
 }
 
