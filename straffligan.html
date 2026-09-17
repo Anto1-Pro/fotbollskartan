@@ -225,6 +225,31 @@
       </div>
       <p class="result-points" id="resultPoints"></p>
       <p class="result-standing" id="resultStanding"></p>
+
+      <!-- Delning: färdig text och bild med föreningens emblem -->
+      <div class="share-box" id="shareBox">
+        <p class="share-head">📣 Dela resultatet – fler som spelar ger fler poäng till föreningen</p>
+        <div class="share-main">
+          <img class="share-preview" id="sharePreview" alt="Delningsbild med resultatet" hidden />
+          <div class="share-body">
+            <p class="share-text" id="shareText"></p>
+            <p class="share-link" id="shareLink"></p>
+          </div>
+        </div>
+        <div class="share-btns">
+          <button class="share-btn is-x" type="button" data-share="x" aria-label="Dela på X"><span class="x-mark" aria-hidden="true">𝕏</span></button>
+          <button class="share-btn is-fb" type="button" data-share="facebook"><span aria-hidden="true">f</span> Facebook</button>
+          <button class="share-btn is-snap" type="button" data-share="snapchat"><span aria-hidden="true">👻</span> Snapchat</button>
+          <button class="share-btn is-ig" type="button" data-share="instagram"><span aria-hidden="true">📷</span> Instagram</button>
+        </div>
+        <div class="share-btns share-btns-sec">
+          <button class="share-btn is-plain" type="button" data-share="native" hidden><span aria-hidden="true">📤</span> Dela…</button>
+          <button class="share-btn is-plain" type="button" data-share="copy"><span aria-hidden="true">📋</span> Kopiera text</button>
+          <button class="share-btn is-plain" type="button" data-share="download"><span aria-hidden="true">⬇️</span> Ladda ner bild</button>
+        </div>
+        <p class="share-note" id="shareNote"></p>
+      </div>
+
       <div class="cta-row">
         <button class="btn-primary" type="button" id="btnAgain">⚽ Spela igen</button>
         <button class="locate-btn" type="button" id="btnResultBoard">🏆 Topplistan</button>

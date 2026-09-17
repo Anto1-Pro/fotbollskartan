@@ -5,6 +5,7 @@
  */
 
 import { PenaltyScene } from "./penalty-scene.js";
+import { renderShareCard } from "./share-card.js";
 
 /* =====================================================================
    Konstanter och hjälpfunktioner
@@ -1009,6 +1010,210 @@ async function abandonMatch() {
   await showResult("abandon");
 }
 
+/* =====================================================================
+   Dela resultatet
+   ---------------------------------------------------------------------
+   Poängen kommer från att många i föreningen spelar, så varje avgörande
+   avslutas med en färdig text och en bild att lägga upp. X, Facebook och
+   Snapchat har länkar man kan öppna direkt. Instagram har ingen sådan länk
+   alls, och Snapchat tar bara med länken — därför går de vägen via
+   telefonens egen delningsruta (navigator.share) med bilden bifogad, vilket
+   är det enda sättet att få in en bild i de apparna från en webbsida. På
+   datorn laddas bilden ner i stället och texten läggs på urklipp.
+   ===================================================================== */
+
+const SHARE_URL = "https://www.fotbollskarta.se/straffligan.html";
+
+let shareState = null; // { text, link, blob, file }
+
+function shareLink(club) {
+  return SHARE_URL + "?klubb=" + encodeURIComponent(club.id) + "&utm_source=delning";
+}
+
+/** Texten som följer med delningen. */
+function shareMessage(own, opp, won, rank) {
+  let t =
+    "Jag spelade med " +
+    own.name +
+    (won ? " och vann just över " : " och förlorade just mot ") +
+    opp.name +
+    ".";
+  if (rank) t += " Vi ligger nu på plats " + rank + " i Straffligan denna månad.";
+  return t + " Hjälp till att nå toppen!";
+}
+
+/** Föreningens placering i månadens topplista. */
+async function monthRank(clubId) {
+  try {
+    const rows = await window.FKScore.leaderboard("month", true);
+    let plats = 0;
+    for (let i = 0; i < rows.length; i++) {
+      if (!state.byId[rows[i].clubId]) continue; // okända id (testrader) räknas inte
+      plats += 1;
+      if (rows[i].clubId === clubId) return plats;
+    }
+  } catch (e) { /* offline — då hoppar texten över placeringen */ }
+  return null;
+}
+
+function shareNote(text) {
+  $("shareNote").textContent = text || "";
+}
+
+/** Bygger text och bild för det avgörande som just spelades. */
+async function prepareShare(kind) {
+  // Ett avbrutet avgörande är inget att skryta med — och resultatet säger inget
+  $("shareBox").hidden = kind === "abandon";
+  if (kind === "abandon") return;
+
+  const won = kind === "win";
+  const own = state.own;
+  const opp = state.opp;
+  const rank = await monthRank(own.id);
+  const text = shareMessage(own, opp, won, rank);
+  const link = shareLink(own);
+
+  $("shareText").textContent = text;
+  $("shareLink").textContent = link;
+  shareState = { text: text, link: link, blob: null, file: null };
+  shareNote("");
+
+  // Bilden ritas efter texten, så rutan är användbar direkt
+  try {
+    const card = await renderShareCard({
+      own: own,
+      opp: opp,
+      won: won,
+      score: state.match.homeScore + "–" + state.match.awayScore,
+      rank: rank,
+      monthLabel: monthLabel(window.FKScore.currentMonth()).toLowerCase(),
+      ownCrest: initialsCrest(own),
+      oppCrest: initialsCrest(opp),
+    });
+    const img = $("sharePreview");
+    if (card.blob) {
+      shareState.blob = card.blob;
+      shareState.file = new File([card.blob], "straffligan.png", { type: "image/png" });
+      img.src = URL.createObjectURL(card.blob);
+      img.hidden = false;
+    } else {
+      img.src = card.canvas.toDataURL ? "" : "";
+      img.hidden = true;
+    }
+  } catch (e) {
+    $("sharePreview").hidden = true;
+  }
+
+  // "Dela…" visas bara där telefonens delningsruta finns
+  const kanDela = typeof navigator !== "undefined" && !!navigator.share;
+  document.querySelector('[data-share="native"]').hidden = !kanDela;
+}
+
+function canShareFile() {
+  return !!(
+    shareState &&
+    shareState.file &&
+    navigator.canShare &&
+    navigator.canShare({ files: [shareState.file] })
+  );
+}
+
+function openShareWindow(url) {
+  window.open(url, "_blank", "noopener,noreferrer,width=600,height=640");
+}
+
+async function copyShareText() {
+  const hela = shareState.text + "\n" + shareState.link;
+  try {
+    await navigator.clipboard.writeText(hela);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function downloadCard() {
+  if (!shareState || !shareState.blob) return false;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(shareState.blob);
+  a.download = "straffligan-" + (state.own ? normalize(state.own.name).replace(/ /g, "-") : "resultat") + ".png";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  return true;
+}
+
+/** Telefonens egen delningsruta — enda vägen till Instagram och Snapchat-bilder. */
+async function nativeShare(app) {
+  const data = { text: shareState.text + "\n" + shareState.link };
+  if (canShareFile()) data.files = [shareState.file];
+  try {
+    await navigator.share(data);
+    return true;
+  } catch (e) {
+    if (e && e.name === "AbortError") return true; // besökaren stängde rutan själv
+    return false;
+  }
+}
+
+async function doShare(what) {
+  if (!shareState) return;
+  const text = shareState.text;
+  const link = shareState.link;
+
+  if (what === "x") {
+    openShareWindow(
+      "https://twitter.com/intent/tweet?text=" + encodeURIComponent(text) + "&url=" + encodeURIComponent(link)
+    );
+    return;
+  }
+  if (what === "facebook") {
+    openShareWindow(
+      "https://www.facebook.com/sharer/sharer.php?u=" + encodeURIComponent(link) +
+      "&quote=" + encodeURIComponent(text)
+    );
+    return;
+  }
+  if (what === "copy") {
+    shareNote((await copyShareText()) ? "Texten är kopierad – klistra in där du vill dela." : "Kunde inte kopiera automatiskt, markera texten ovan i stället.");
+    return;
+  }
+  if (what === "download") {
+    shareNote(downloadCard() ? "Bilden är nedladdad." : "Bilden kunde inte skapas i den här webbläsaren – dela texten i stället.");
+    return;
+  }
+  if (what === "native") {
+    if (await nativeShare()) return;
+    shareNote("Delningen gick inte igenom. Kopiera texten i stället.");
+    return;
+  }
+
+  // Snapchat och Instagram: bilden kan bara komma in via telefonens delningsruta
+  if (canShareFile() || (navigator.share && what === "snapchat")) {
+    if (await nativeShare(what)) {
+      shareNote(
+        what === "instagram"
+          ? "Välj Instagram i listan – bilden följer med."
+          : "Välj Snapchat i listan – bilden följer med."
+      );
+      return;
+    }
+  }
+  if (what === "snapchat") {
+    openShareWindow("https://www.snapchat.com/share?link=" + encodeURIComponent(link));
+    shareNote("Snapchat tar bara med länken. Vill du ha bilden: ladda ner den och lägg upp den i appen.");
+    return;
+  }
+  // Instagram på dator: ingen delningslänk finns, så bilden laddas ner
+  const kopierat = await copyShareText();
+  const nedladdad = downloadCard();
+  shareNote(
+    (nedladdad ? "Bilden är nedladdad" : "Bilden kunde inte skapas") +
+      (kopierat ? " och texten är kopierad" : "") +
+      ". Instagram går bara att lägga upp i appen – öppna den och välj bilden."
+  );
+}
+
 async function showResult(kind) {
   const m = state.match;
   const card = $("resultCard");
@@ -1052,6 +1257,7 @@ async function showResult(kind) {
     : "";
 
   show("screenResult");
+  prepareShare(kind).catch(() => {});
 }
 
 /* =====================================================================
@@ -1221,6 +1427,10 @@ function bindEvents() {
     renderBoard();
   };
   $("boardDistrict").onchange = () => renderBoard();
+
+  document.querySelectorAll("[data-share]").forEach((b) => {
+    b.onclick = () => doShare(b.dataset.share);
+  });
 
   document.querySelectorAll(".board-tab").forEach((b) => {
     b.onclick = () => setBoardPeriod(b.dataset.period);
