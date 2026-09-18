@@ -242,6 +242,42 @@ function applyCrest(img, club) {
   img.src = crestSrc(club);
 }
 
+/**
+ * "Jämshögs IF" → "jamshogs-if", adressen till klubbens egen sida i Straffligan.
+ *
+ * Måste ge exakt samma resultat som slugify() i
+ * tools/gen-straffliga-klubbar.py, som bygger uppslagstabellen på servern —
+ * annars pekar delningslänkarna på adresser som inte finns. test-slug.mjs
+ * jämför de två över alla klubbar.
+ */
+function slugOf(name) {
+  let s = String(name || "").toLowerCase();
+  const par = [["å", "a"], ["ä", "a"], ["ö", "o"], ["é", "e"], ["è", "e"], ["ü", "u"], ["ø", "o"], ["æ", "ae"]];
+  par.forEach((p) => { s = s.split(p[0]).join(p[1]); });
+  s = s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7f]/g, "");
+  return s.replace(/[^a-z0-9]+/g, "-").replace(/^-+/, "").replace(/-+$/, "");
+}
+
+/**
+ * Sluggar alla spelbara klubbar. Två klubbar kan heta samma sak (tre fall i
+ * dag) — de får id:ts fyra första tecken efter namnet, samma regel som i
+ * generatorn.
+ */
+function buildSlugs() {
+  const grupper = {};
+  state.playable.forEach((c) => {
+    const s = slugOf(c.name);
+    (grupper[s] = grupper[s] || []).push(c);
+  });
+  state.slugById = {};
+  Object.keys(grupper).forEach((bas) => {
+    const lista = grupper[bas];
+    lista.forEach((c) => {
+      state.slugById[c.id] = lista.length === 1 ? bas : bas + "-" + c.id.slice(0, 4);
+    });
+  });
+}
+
 /** Avstånd mellan två klubbar i kilometer. */
 function distanceKm(a, b) {
   if (a.lat == null || b.lat == null) return null;
@@ -363,6 +399,7 @@ async function loadClubs() {
   state.playable = state.clubs.filter((c) => c.country === PLAYABLE_COUNTRY);
   // Blandad ordning, så att det inte alltid är samma klubbar högst upp
   state.shuffled = shuffle(state.playable);
+  buildSlugs();
   state.districts = Array.from(new Set(state.playable.map((c) => c.district).filter(Boolean))).sort(
     (a, b) => a.localeCompare(b, "sv")
   );
@@ -1022,11 +1059,19 @@ async function abandonMatch() {
    datorn laddas bilden ner i stället och texten läggs på urklipp.
    ===================================================================== */
 
-const SHARE_URL = "https://www.fotbollskarta.se/straffligan.html";
+const SITE_URL = "https://www.fotbollskarta.se";
+const SHARE_URL = SITE_URL + "/straffligan.html";
 
 let shareState = null; // { text, link, blob, file }
 
+/**
+ * Länken som delas: klubbens egen sida (/spela/jamshogs-if), där servern sätter
+ * og-taggar och ritar en förhandsvisningsbild med klubbens emblem. Saknas
+ * slugen av någon anledning faller vi tillbaka på djuplänken till spelet.
+ */
 function shareLink(club) {
+  const slug = state.slugById && state.slugById[club.id];
+  if (slug) return SITE_URL + "/spela/" + slug + "?utm_source=delning";
   return SHARE_URL + "?klubb=" + encodeURIComponent(club.id) + "&utm_source=delning";
 }
 

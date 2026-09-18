@@ -1,0 +1,9 @@
+{
+  "name": "fotbollskarta",
+  "private": true,
+  "type": "module",
+  "description": "Statisk sajt. package.json finns bara för Vercel-funktionerna i api/ — resvg ritar delningsbilden i api/og.js.",
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    { "source": "/spela/:slug", "destination": "/api/spela?slug=:slug" }
+  ],
+  "functions": {
+    "api/og.js": { "includeFiles": "fonts/**" }
+  }
+}
