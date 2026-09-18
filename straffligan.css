@@ -899,7 +899,14 @@ body.is-playing footer { display: none; }
   background: #06200f;
 }
 
-.share-body { min-width: 0; }
+/* min-width: 0 låter texten krympa i sidled i stället för att bli en egen
+   bredd — utan den blir raden så bred som den längsta oklippbara biten (länken)
+   och skjuter ut hela sidan. max-width behövs för fallet nedan där rutan blir
+   en kolumn, då bredden annars räknas ut från innehållet. */
+.share-body {
+  min-width: 0;
+  max-width: 100%;
+}
 
 .share-link {
   margin: 6px 0 0;
@@ -988,9 +995,31 @@ body.is-playing footer { display: none; }
 }
 
 @media (max-width: 480px) {
-  .share-main { flex-direction: column; align-items: center; }
-  .share-preview { flex: 0 0 auto; width: 150px; height: 150px; }
-  .share-text { text-align: center; }
+  .share-main { flex-direction: column; align-items: stretch; }
+  /* Bilden centreras för sig — kolumnen får inte centrera barnen, för då
+     räknas deras bredd ut från innehållet och texten radbryts aldrig. */
+  .share-preview { flex: 0 0 auto; width: 150px; height: 150px; margin: 0 auto; }
+  .share-body { width: 100%; }
+  .share-text { text-wrap: pretty; }
+  /* "Snapchat Story" och "Instagram Story" får inte plats på en rad i en halv
+     telefonbredd, och en knapptext i två rader ser ut som ett misstag. De får
+     en rad var i stället — X och Facebook är korta nog att stå i bredd. */
+  .share-btn.is-snap,
+  .share-btn.is-ig { grid-column: 1 / -1; }
+  .share-btns-sec { grid-template-columns: 1fr; }
+}
+
+/* Smala telefoner: två knappar i bredd ger inte plats för "Instagram Story",
+   så de får en rad var i stället. */
+@media (max-width: 360px) {
+  .share-btns,
+  .share-btns-sec {
+    grid-template-columns: 1fr;
+  }
+  .share-btn {
+    padding: 11px 12px;
+    font-size: 0.82rem;
+  }
 }
 
 .share-btn .x-mark { font-size: 1.2rem; line-height: 1; }
